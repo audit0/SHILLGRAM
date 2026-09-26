@@ -202,7 +202,7 @@ void BotKeyboard::paintEvent(QPaintEvent *e) {
 	Painter p(this);
 
 	auto clip = e->rect();
-	p.fillRect(clip, st::historyComposeAreaBg);
+	p.fillRect(clip, st::historyReplyBg); // ShillGramm: same band as around the input capsule
 
 	if (_impl) {
 		int x = rtl() ? st::botKbScroll.width : _st->margin;

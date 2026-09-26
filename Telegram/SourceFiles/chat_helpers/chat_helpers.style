@@ -1344,7 +1344,7 @@ historyAttachEmojiInner: IconButton(historyAttach) {
 }
 historyAttachEmoji: EmojiButton {
 	inner: historyAttachEmojiInner;
-	bg: historyComposeAreaBg;
+	bg: transparent; // ShillGramm: sits inside the rounded input capsule
 	lineFg: historyEmojiCircleFg;
 	lineFgOver: historyEmojiCircleFgOver;
 }

@@ -11074,6 +11074,22 @@ void HistoryWidget::drawField(Painter &p, const QRect &rect) {
 	p.setInactive(
 		controller()->isGifPausedAtLeastFor(Window::GifPauseReason::Any));
 	p.fillRect(myrtlrect(0, backy, width(), backh), st::historyReplyBg);
+	{
+		// ShillGramm: the input row is a floating rounded capsule (the field
+		// paints historyComposeAreaBg, the band around it historyReplyBg).
+		const auto margin = style::ConvertScale(10);
+		const auto inset = style::ConvertScale(5);
+		const auto top = _field->y() - st::historySendPadding + inset;
+		const auto height = fieldHeight()
+			+ 2 * st::historySendPadding
+			- 2 * inset;
+		const auto capsule = QRect(margin, top, width() - 2 * margin, height);
+		const auto radius = std::min(height / 2., double(style::ConvertScale(20)));
+		auto hq = PainterHighQualityEnabler(p);
+		p.setPen(Qt::NoPen);
+		p.setBrush(st::historyComposeAreaBg);
+		p.drawRoundedRect(capsule, radius, radius);
+	}
 
 	const auto media = (!_previewDrawPreview && drawMsgText)
 		? drawMsgText->media()
