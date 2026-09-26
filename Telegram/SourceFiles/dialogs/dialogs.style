@@ -74,8 +74,8 @@ infoForumTopicIcon: ForumTopicIcon {
 	textTop: 4px;
 }
 
-dialogsUnreadFont: font(12px bold);
-dialogsUnreadHeight: 19px;
+dialogsUnreadFont: font(11px semibold); // ShillGramm: calmer counters
+dialogsUnreadHeight: 18px;
 dialogsUnreadPadding: 5px;
 
 dialogsRipple: RippleAnimation(defaultRippleAnimation) {
@@ -84,21 +84,21 @@ dialogsRipple: RippleAnimation(defaultRippleAnimation) {
 
 dialogsTextFont: normalFont;
 dialogsTextStyle: defaultTextStyle;
-dialogsDateFont: font(13px);
+dialogsDateFont: font(12px);
 dialogsDateSkip: 5px;
 
-dialogsRowHeight: 62px;
+dialogsRowHeight: 64px; // ShillGramm: a little more air
 dialogsFilterPadding: point(7px, 7px);
 dialogsFilterSkip: 4px;
 
 defaultDialogRow: DialogRow {
 	height: dialogsRowHeight;
-	padding: margins(10px, 8px, 10px, 8px);
+	padding: margins(14px, 9px, 14px, 9px);
 	photoSize: 46px;
-	nameLeft: 68px;
-	nameTop: 10px;
-	textLeft: 68px;
-	textTop: 34px;
+	nameLeft: 72px;
+	nameTop: 11px;
+	textLeft: 72px;
+	textTop: 35px;
 }
 communityRequestableListItem: PeerListItem(defaultPeerListItem) {
 	height: dialogsRowHeight;            // == st::defaultDialogRow.height (62px)
