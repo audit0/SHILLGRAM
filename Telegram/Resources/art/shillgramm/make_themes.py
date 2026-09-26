@@ -65,17 +65,18 @@ KEEP_COLOUR = ('callAnswer', 'callHangup', 'callArrowMissed')
 
 # Palette of the agents panel (Панель управления агентами Claude) as it is
 # rendered: cool neutrals, orange "hot" counters, green only for links/focus.
-DAY = dict(bg='#ffffff', panel='#ffffff', side='#f7f7f8', soft='#f3f3f5',
-           pill='#e6e6ea', line='#e7e7ea', lineSoft='#f0f0f2', ink='#18191b',
+DAY = dict(bg='#f0f0f2', panel='#fafafb', side='#f1f1f3', soft='#eaeaed',
+           pill='#e0e0e5', line='#e2e2e6', lineSoft='#ececef', ink='#18191b',
            inkOver='#000000', muted='#5e6268', faint='#8a8e95', accent='#1d6b48',
-           accentSoft='#e9f3ee', sel='#eef2fb', selLine='#c9d5f2', hot='#b25a0c',
-           note='#fdf5ea', noteLine='#f1dcc0', ok='#1d7a50', warn='#b25a0c', bad='#c0362c')
-NIGHT = dict(bg='#161618', panel='#161618', side='#1c1c1f', soft='#232326',
-             pill='#2c2c30', line='#2c2c30', lineSoft='#222225', ink='#ececef',
-             inkOver='#ffffff', muted='#a1a4ab', faint='#7c8088', accent='#5fb38a',
-             accentSoft='#1c2a23', sel='#1f2636', selLine='#34405a', hot='#e08a3c',
-             note='#2a2218', noteLine='#4a3a24', ok='#5fb38a', warn='#e08a3c', bad='#ef6a5e',
-             button='#ececef')
+           accentSoft='#e4efe9', sel='#e6ebf6', selLine='#c9d5f2', hot='#b25a0c',
+           note='#f8efe2', noteLine='#ecd6b8', ok='#1d7a50', warn='#b25a0c', bad='#c0362c')
+# Night: the graphite-navy of the agents panel icon (#1b2130 -> #2a3346)
+# with its status dots: amber counters, green accent.
+NIGHT = dict(bg='#171c28', panel='#1b2130', side='#181d2a', soft='#242b3b',
+             pill='#2a3346', line='#2a3244', lineSoft='#222938', ink='#e6e9ef',
+             inkOver='#ffffff', muted='#a0a9b8', faint='#7a8496', accent='#22c55e',
+             accentSoft='#1d3329', sel='#26314a', selLine='#34425f', hot='#f5a524',
+             note='#2b2a22', noteLine='#4a4128', ok='#22c55e', warn='#f5a524', bad='#ef6a5e')
 
 
 def warm(l, a='', dark=False):
@@ -141,7 +142,8 @@ swap_out(nite, day_src, True)
 
 def common(P, dark):
     btn = P['ink']
-    btnFg = P['bg']
+    btnFg = P['panel'] if dark else '#ffffff'
+    badgeFg = P['panel'] if dark else '#ffffff'
     return {
         'windowBg': P['panel'], 'windowFg': P['ink'], 'windowBgOver': P['side'],
         'windowBgRipple': P['pill'], 'windowSubTextFg': P['muted'],
@@ -168,9 +170,9 @@ def common(P, dark):
         'dialogsTextFgServiceOver': P['ink'],
         'dialogsDateFg': P['faint'], 'dialogsDateFgActive': P['faint'],
         'dialogsDateFgOver': P['faint'],
-        'dialogsUnreadBg': P['hot'], 'dialogsUnreadFg': '#ffffff',
+        'dialogsUnreadBg': P['hot'], 'dialogsUnreadFg': badgeFg,
         'dialogsUnreadBgOver': P['hot'], 'dialogsUnreadBgActive': P['hot'],
-        'dialogsUnreadFgActive': '#ffffff', 'dialogsUnreadFgOver': '#ffffff',
+        'dialogsUnreadFgActive': badgeFg, 'dialogsUnreadFgOver': badgeFg,
         'dialogsUnreadBgMuted': P['faint'], 'dialogsUnreadBgMutedOver': P['faint'],
         'dialogsUnreadBgMutedActive': P['faint'],
         'dialogsSentIconFg': P['accent'], 'dialogsSentIconFgActive': P['accent'],
@@ -184,7 +186,7 @@ def common(P, dark):
         'sideBarIconFg': P['muted'], 'sideBarIconFgActive': P['ink'],
         'sideBarBadgeBg': P['hot'], 'sideBarBadgeBgActive': P['hot'],
         'sideBarBadgeBgMuted': P['faint'], 'sideBarBadgeBgMutedActive': P['faint'],
-        'sideBarBadgeFg': '#ffffff',
+        'sideBarBadgeFg': badgeFg,
         'shadowFg': '#0000001a' if not dark else '#00000055',
         'historyComposeAreaBg': P['panel'], 'historyComposeAreaFg': P['ink'],
         'historyComposeAreaFgService': P['muted'], 'historyComposeIconFg': P['faint'],
@@ -226,7 +228,7 @@ def solid_png(hex6):
             + chunk(b'IDAT', zlib.compress(raw)) + chunk(b'IEND', b''))
 
 
-for name, theme, bg in (('shillgramm-day', day, DAY['panel']), ('shillgramm-night', nite, NIGHT['panel'])):
+for name, theme, bg in (('shillgramm-day', day, DAY['bg']), ('shillgramm-night', nite, NIGHT['bg'])):
     text = ''.join(f'{k}: {theme[k]};\n' for k in keys)
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as z:

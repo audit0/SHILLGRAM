@@ -243,10 +243,10 @@ std::vector<EmbeddedScheme> EmbeddedThemes() {
 	return {
 		EmbeddedScheme{
 			EmbeddedType::ShillDay,
-			qColor("ffffff"),
-			qColor("eef2fb"),
-			qColor("f3f3f5"),
-			qColor("e7e7ea"),
+			qColor("f0f0f2"),
+			qColor("e6ebf6"),
+			qColor("fafafb"),
+			qColor("e2e2e6"),
 			qColor("18191b"),
 			rpl::single(u"ShillGramm"_q),
 			ShillDayThemePath(),
@@ -254,14 +254,14 @@ std::vector<EmbeddedScheme> EmbeddedThemes() {
 		},
 		EmbeddedScheme{
 			EmbeddedType::ShillNight,
-			qColor("161618"),
-			qColor("1f2636"),
-			qColor("232326"),
-			qColor("2c2c30"),
-			qColor("ececef"),
+			qColor("171c28"),
+			qColor("26314a"),
+			qColor("242b3b"),
+			qColor("2a3346"),
+			qColor("22c55e"),
 			rpl::single(u"ShillGramm Night"_q),
 			":/gui/shillgramm-night.tdesktop-theme",
-			qColor("ececef")
+			qColor("22c55e")
 		},
 		EmbeddedScheme{
 			EmbeddedType::Default,

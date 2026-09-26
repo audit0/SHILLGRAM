@@ -605,7 +605,7 @@ void ChatBackground::start() {
 	// ShillGramm: until the user picks another theme, use ours. The applied
 	// theme is cached in tdata, so bump kShillThemeVersion whenever the
 	// palettes change to re-apply them once.
-	constexpr auto kShillThemeVersion = 5;
+	constexpr auto kShillThemeVersion = 7;
 	const auto marker = cWorkingDir()
 		+ u"tdata/shillgramm_theme_v%1"_q.arg(kShillThemeVersion);
 	if (!QFile::exists(marker)) {
@@ -615,29 +615,25 @@ void ChatBackground::start() {
 			|| path == u":/gui/night.tdesktop-theme"_q
 			|| path == ShillDayThemePath()
 			|| path == NightThemePath();
-		// The agents panel design is light: once, move to the day theme
-		// and stop following the system dark mode (the moon button still
-		// switches to ShillGramm Night). Later palette bumps keep the mode.
-		const auto lightMarker = cWorkingDir()
-			+ u"tdata/shillgramm_light_v1"_q;
-		const auto toLight = night && !QFile::exists(lightMarker);
-		if (toLight) {
-			Core::App().settings().setSystemDarkModeEnabled(false);
+		// Two ShillGramm looks (light and the panel-icon navy night) follow
+		// the system appearance; turned back on once for everyone.
+		const auto followMarker = cWorkingDir()
+			+ u"tdata/shillgramm_follow_v1"_q;
+		if (!QFile::exists(followMarker)) {
+			Core::App().settings().setSystemDarkModeEnabled(true);
 			Core::App().saveSettingsDelayed();
-			auto file = QFile(lightMarker);
+			auto file = QFile(followMarker);
 			if (file.open(QIODevice::WriteOnly)) {
 				file.close();
 			}
 		}
 		if (oursOrDefault && !_themeObject.cloud.id) {
-			crl::on_main([night, toLight] {
-				if (toLight) {
-					ToggleNightMode(ShillDayThemePath());
-				} else {
-					ApplyDefaultWithPath(night
-						? NightThemePath()
-						: ShillDayThemePath());
-				}
+			// Mode is read when applying: following the system may have
+			// switched it after this point.
+			crl::on_main([] {
+				ApplyDefaultWithPath(IsNightMode()
+					? NightThemePath()
+					: ShillDayThemePath());
 				KeepApplied();
 				Background()->set(Data::ThemeWallPaper());
 				Background()->writeNewBackgroundSettings();
