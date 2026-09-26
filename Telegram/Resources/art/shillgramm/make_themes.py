@@ -75,7 +75,7 @@ DAY = dict(bg='#efeff2', panel='#ffffff', side='#f5f5f7', soft='#f2f2f4',
            outBg='#2c2c2e', outSel='#3a3a3c', outFg='#ffffff', outSub='#aeaeb2',
            outLink='#8fd3ad', inBg='#ffffff', inSel='#e8e8ed',
            userpics=['#aeb3bd', '#9ea4b0', '#8e95a3', '#b4b9c2'])
-NIGHT = dict(bg='#000000', panel='#1c1c1e', side='#161618', soft='#2c2c2e',
+NIGHT = dict(bg='#121214', panel='#1c1c1e', side='#161618', soft='#2c2c2e',
              pill='#3a3a3c', line='#38383a', lineSoft='#2c2c2e', ink='#f5f5f7',
              inkOver='#ffffff', muted='#98989d', faint='#8e8e93', accent='#5fc38e',
              accentSoft='#1d3329', sel='#2c2c2e', selLine='#3a3a3c', hot='#e5e5ea',
@@ -239,7 +239,7 @@ nite.update({'msgServiceBg': '#2c2c2e', 'msgServiceFg': '#f5f5f7',
 
 # Glass: the window behind these areas is the macOS vibrancy layer.
 GLASS_KEYS = ('dialogsBg', 'sideBarBg', 'titleBg', 'titleBgActive', 'topBarBg')
-for theme, alpha in ((day, 'e6'), (nite, 'd9')):
+for theme, alpha in ((day, 'b3'), (nite, '99')):
     for k in GLASS_KEYS:
         v = theme[k]
         if v.startswith('#') and len(v) == 7:

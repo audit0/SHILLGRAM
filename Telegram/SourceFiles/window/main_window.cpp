@@ -647,7 +647,12 @@ void MainWindow::updatePalette() {
 	Ui::ForceFullRepaint(this);
 
 	auto p = palette();
+#ifdef Q_OS_MAC
+	// ShillGramm glass: no opaque window fill over the macOS vibrancy.
+	p.setColor(QPalette::Window, Qt::transparent);
+#else // Q_OS_MAC
 	p.setColor(QPalette::Window, st::windowBg->c);
+#endif // Q_OS_MAC
 	setPalette(p);
 }
 

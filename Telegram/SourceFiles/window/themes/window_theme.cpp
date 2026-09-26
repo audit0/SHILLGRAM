@@ -605,7 +605,7 @@ void ChatBackground::start() {
 	// ShillGramm: until the user picks another theme, use ours. The applied
 	// theme is cached in tdata, so bump kShillThemeVersion whenever the
 	// palettes change to re-apply them once.
-	constexpr auto kShillThemeVersion = 11;
+	constexpr auto kShillThemeVersion = 15;
 	const auto marker = cWorkingDir()
 		+ u"tdata/shillgramm_theme_v%1"_q.arg(kShillThemeVersion);
 	if (!QFile::exists(marker)) {
@@ -618,7 +618,7 @@ void ChatBackground::start() {
 		// Two ShillGramm looks (light and the panel-icon navy night) follow
 		// the system appearance; turned back on once for everyone.
 		const auto followMarker = cWorkingDir()
-			+ u"tdata/shillgramm_follow_v1"_q;
+			+ u"tdata/shillgramm_follow_v2"_q;
 		if (!QFile::exists(followMarker)) {
 			Core::App().settings().setSystemDarkModeEnabled(true);
 			Core::App().saveSettingsDelayed();
@@ -631,9 +631,18 @@ void ChatBackground::start() {
 			// Mode is read when applying: following the system may have
 			// switched it after this point.
 			crl::on_main([] {
-				ApplyDefaultWithPath(IsNightMode()
-					? NightThemePath()
-					: ShillDayThemePath());
+				// Match the macOS appearance right away (dark Mac -> the
+				// dark glass look), then keep following it.
+				const auto &settings = Core::App().settings();
+				const auto dark = settings.systemDarkMode().value_or(
+					IsNightMode());
+				if (dark != IsNightMode()) {
+					ToggleNightMode(dark ? NightThemePath() : ShillDayThemePath());
+				} else {
+					ApplyDefaultWithPath(dark
+						? NightThemePath()
+						: ShillDayThemePath());
+				}
 				KeepApplied();
 				Background()->set(Data::ThemeWallPaper());
 				Background()->writeNewBackgroundSettings();
