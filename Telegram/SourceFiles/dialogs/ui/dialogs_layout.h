@@ -71,6 +71,7 @@ struct PaintContext {
 	int width = 0;
 	bool active = false;
 	bool selected = false;
+	float64 selectedOpacity = 1.; // ShillGramm: hover pill fades in
 	bool topicJumpSelected = false;
 	bool paused = false;
 	bool search = false;

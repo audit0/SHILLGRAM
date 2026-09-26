@@ -504,7 +504,14 @@ void PaintRow(
 		auto hq = PainterHighQualityEnabler(p);
 		p.setPen(Qt::NoPen);
 		p.setBrush(bg);
+		const auto fade = !context.active && context.selectedOpacity < 1.;
+		if (fade) {
+			p.setOpacity(context.selectedOpacity);
+		}
 		p.drawRoundedRect(inset, radius, radius);
+		if (fade) {
+			p.setOpacity(1.);
+		}
 	}
 	if (!(flags & Flag::TopicJumpRipple)) {
 		auto ripple = context.active

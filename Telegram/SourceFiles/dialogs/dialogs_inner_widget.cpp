@@ -1193,6 +1193,9 @@ void InnerWidget::paintEvent(QPaintEvent *e) {
 			: _chatPreviewRow.key
 			? (row->key() == _chatPreviewRow.key)
 			: selected;
+		context.selectedOpacity = (row == _hoverFadeRow)
+			? _hoverFadeAnimation.value(1.)
+			: 1.;
 		context.topicJumpSelected = selected
 			&& _selectedTopicJump
 			&& (!_pressed || _pressedTopicJump);
@@ -2319,6 +2322,17 @@ void InnerWidget::selectByMouse(QPoint globalPosition) {
 			|| _selectedTopicJump != selectedTopicJump
 			|| _selectedRightButton != selectedRightButton) {
 			updateSelectedRow();
+			if (_selected != selected) {
+				_hoverFadeRow = selected;
+				_hoverFadeAnimation.stop();
+				if (selected) {
+					_hoverFadeAnimation.start(
+						[=] { updateSelectedRow(); },
+						0.,
+						1.,
+						st::universalDuration);
+				}
+			}
 			_selected = selected;
 			_communitySelected = communitySelected;
 			_selectedTopicJump = selectedTopicJump;

@@ -669,6 +669,8 @@ private:
 	int _collapsedPressed = -1;
 	bool _skipTopDialog = false;
 	Row *_selected = nullptr;
+	Row *_hoverFadeRow = nullptr;
+	Ui::Animations::Simple _hoverFadeAnimation;
 	Row *_pressed = nullptr;
 	MsgId _pressedTopicJumpRootId;
 	PeerId _pressedSublistJumpPeerId;
