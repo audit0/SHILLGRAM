@@ -493,7 +493,19 @@ void PaintRow(
 	if (swipeTranslation) {
 		p.translate(-swipeTranslation, 0);
 	}
-	p.fillRect(geometry, bg);
+	// ShillGramm: selected / hovered chat is an inset rounded pill, like
+	// the macOS sidebar, instead of a full-width stripe.
+	p.fillRect(geometry, context.currentBg);
+	if (context.active || context.selected) {
+		const auto inset = QRect(geometry).marginsRemoved(
+			QMargins(style::ConvertScale(6), style::ConvertScale(2),
+				style::ConvertScale(6), style::ConvertScale(2)));
+		const auto radius = style::ConvertScale(10);
+		auto hq = PainterHighQualityEnabler(p);
+		p.setPen(Qt::NoPen);
+		p.setBrush(bg);
+		p.drawRoundedRect(inset, radius, radius);
+	}
 	if (!(flags & Flag::TopicJumpRipple)) {
 		auto ripple = context.active
 			? st::dialogsRippleBgActive
