@@ -7,6 +7,7 @@ ShillGramm: Cmd+K command palette - chats, actions and settings in one place.
 #include "boxes/peer_list_controllers.h"
 #include "calls/calls_box_controller.h"
 #include "core/application.h"
+#include "core/core_settings.h"
 #include "data/data_folder.h"
 #include "data/data_peer.h"
 #include "data/data_session.h"
@@ -24,7 +25,9 @@ ShillGramm: Cmd+K command palette - chats, actions and settings in one place.
 #include "ui/widgets/multi_select.h"
 #include "ui/painter.h"
 #include "ui/rp_widget.h"
+#include "window/main_window.h"
 #include "window/themes/window_theme.h"
+#include "window/window_adaptive.h"
 #include "window/window_controller.h"
 #include "window/window_peer_menu.h"
 #include "window/window_session_controller.h"
@@ -33,6 +36,7 @@ ShillGramm: Cmd+K command palette - chats, actions and settings in one place.
 #include "styles/style_layers.h"
 #include "styles/style_menu_icons.h"
 #include "styles/style_widgets.h"
+#include "styles/style_window.h"
 
 #include <QtGui/QShortcut>
 #include <QtWidgets/QTextEdit>
@@ -51,6 +55,36 @@ struct Item {
 	Ui::PeerUserpicView userpic;
 	Fn<void()> action;
 };
+
+// Chat list collapsed to avatars and back, for small screens.
+float64 SavedDialogsRatio = 0.;
+
+[[nodiscard]] bool ChatListCollapsed(
+		not_null<Window::SessionController*> controller) {
+	const auto nochat = !controller->mainSectionShown();
+	return Core::App().settings().dialogsWidthRatio(nochat) == 0.;
+}
+
+void ToggleChatListCollapsed(
+		not_null<Window::SessionController*> controller) {
+	auto &settings = Core::App().settings();
+	const auto nochat = !controller->mainSectionShown();
+	const auto current = settings.dialogsWidthRatio(nochat);
+	if (current > 0.) {
+		SavedDialogsRatio = current;
+		settings.updateDialogsWidthRatio(0., nochat);
+	} else {
+		const auto body = controller->widget()->bodyWidget()->width()
+			- controller->filtersWidth();
+		const auto minimal = st::columnMinimalWidthLeft
+			/ float64(std::max(body, 1));
+		settings.updateDialogsWidthRatio(
+			std::max(SavedDialogsRatio, minimal),
+			nochat);
+	}
+	Core::App().saveSettingsDelayed();
+	controller->updateColumnLayout();
+}
 
 [[nodiscard]] bool Matches(const QString &query, const QString &text) {
 	return query.isEmpty() || text.toLower().contains(query);
@@ -218,14 +252,22 @@ void PaletteBox::rebuild(const QString &query) {
 	_list->update();
 }
 
+[[nodiscard]] QString NoteOf(not_null<PeerData*> peer) {
+	const auto user = peer->asUser();
+	return user ? user->note().text.simplified() : QString();
+}
+
 void PaletteBox::addChat(not_null<History*> history, const QString &hint) {
 	const auto peer = history->peer;
 	const auto controller = _controller;
+	const auto note = NoteOf(peer);
 	_items.push_back(Item{
 		.title = peer->isSelf()
 			? tr::lng_saved_messages(tr::now)
 			: peer->name(),
-		.hint = hint,
+		.hint = note.isEmpty()
+			? hint
+			: (QString::fromUtf8("\xf0\x9f\x93\x9d ") + note),
 		.peer = peer,
 		.action = [=] { controller->showPeerHistory(peer); },
 	});
@@ -250,7 +292,8 @@ void PaletteBox::addChats(const QString &query) {
 				&& !Matches(query, peer->name())
 				&& !(peer->isSelf()
 					&& Matches(query, tr::lng_saved_messages(tr::now)))
-				&& (username.isEmpty() || !Matches(query, username))) {
+				&& (username.isEmpty() || !Matches(query, username))
+				&& !(query.size() > 1 && Matches(query, NoteOf(peer)))) {
 				continue;
 			}
 			seen.emplace(peer);
@@ -431,6 +474,16 @@ void PaletteBox::addActions(const QString &query) {
 		&st::menuIconChannel,
 		u"new channel create новый канал создать"_q,
 		[=] { controller->showNewChannel(); });
+	if (!controller->adaptive().isOneColumn()) {
+		const auto collapsed = ChatListCollapsed(controller);
+		add(
+			(collapsed
+				? Tr("Expand chat list", "Развернуть список чатов")
+				: Tr("Collapse chat list", "Свернуть список чатов")),
+			collapsed ? &st::menuIconExpand : &st::menuIconCollapse,
+			u"compact collapse expand narrow sidebar компактный свернуть развернуть узкий список"_q,
+			[=] { ToggleChatListCollapsed(controller); });
+	}
 	add(
 		(Window::Theme::IsNightMode()
 			? Tr("Day theme", "Дневная тема")

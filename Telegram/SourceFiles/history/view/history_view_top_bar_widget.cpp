@@ -248,6 +248,7 @@ TopBarWidget::TopBarWidget(
 		| UpdateFlag::Rights
 		| UpdateFlag::EmojiStatus
 		| UpdateFlag::Name
+		| UpdateFlag::ContactNote
 	) | rpl::on_next([=](const Data::PeerUpdate &update) {
 		if ((update.flags & UpdateFlag::Name)
 			&& (update.peer == titleNamePeer())) {
@@ -267,7 +268,9 @@ TopBarWidget::TopBarWidget(
 			&& trackOnlineOf(update.peer)) {
 			updateOnlineDisplay();
 		} else if (update.flags
-			& (UpdateFlag::Members | UpdateFlag::SupportInfo)) {
+			& (UpdateFlag::Members
+				| UpdateFlag::SupportInfo
+				| UpdateFlag::ContactNote)) {
 			if (update.peer == _activeChat.key.peer()
 				&& !_activeChat.key.topic()) {
 				updateOnlineDisplay();
@@ -2001,6 +2004,12 @@ void TopBarWidget::updateOnlineDisplay() {
 		} else {
 			text = Data::OnlineText(user, now);
 			titlePeerTextOnline = Data::OnlineTextActive(user, now);
+			// ShillGramm: your private contact note, right under the name.
+			const auto note = user->note().text.simplified();
+			if (!note.isEmpty()) {
+				text += QString::fromUtf8(" Â· ð ")
+					+ note;
+			}
 		}
 	} else if (const auto chat = peer->asChat()) {
 		if (!chat->amIn()) {
