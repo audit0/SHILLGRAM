@@ -7,6 +7,9 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "platform/mac/global_menu_mac.h"
 
+#include "shillgramm/shill_palette.h"
+#include "shillgramm/shill_snooze.h"
+
 #include "core/application.h"
 #include "core/sandbox.h"
 #include "window/window_controller.h"
@@ -115,6 +118,7 @@ private:
 	QAction *_delete = nullptr;
 	QAction *_selectAll = nullptr;
 	QAction *_contacts = nullptr;
+	QAction *_palette = nullptr;
 	QAction *_addContact = nullptr;
 	QAction *_newGroup = nullptr;
 	QAction *_newChannel = nullptr;
@@ -203,6 +207,10 @@ void Manager::retranslate() {
 	}
 	if (_delete) {
 		_delete->setText(tr::lng_mac_menu_delete(tr::now));
+	}
+	if (_palette) {
+		_palette->setText(
+			Shill::Tr("Quick Actions (⌘K)", "Быстрые действия (⌘K)"));
 	}
 	if (_contacts) {
 		_contacts->setText(tr::lng_mac_menu_contacts(tr::now));
@@ -652,6 +660,21 @@ void Manager::buildWindowMenu(QMenu *window) {
 	_fullScreen->setShortcutContext(Qt::WidgetShortcut);
 	window->addSeparator();
 
+	// ShillGramm: the Cmd+K palette, also reachable from the menu bar.
+	_palette = window->addAction(
+		u"Quick Actions (⌘K)"_q,
+		receiver,
+		[this] {
+			withActiveWindow([](not_null<Window::Controller*> w) {
+				const auto sc = w->sessionController();
+				if (!sc || w->locked()) {
+					return;
+				}
+				Shill::ShowCommandPalette(sc);
+			});
+		});
+	window->addSeparator();
+
 	_contacts = window->addAction(u"Contacts"_q);
 	QObject::connect(_contacts, &QAction::triggered, _contacts, [this] {
 		withActiveWindow([](not_null<Window::Controller*> w) {
@@ -751,7 +774,7 @@ void Manager::destroy() {
 	_menuBar.reset();
 	_languageBound = false;
 	_logout = _undo = _redo = _cut = _copy = _paste = _delete
-		= _selectAll = _contacts = _addContact = _newGroup
+		= _selectAll = _contacts = _palette = _addContact = _newGroup
 		= _newChannel = _showTelegram = _fullScreen = _emoji
 		= _bold = _italic = _underline
 		= _strikeOut = _blockquote = _monospace = _clearFormat

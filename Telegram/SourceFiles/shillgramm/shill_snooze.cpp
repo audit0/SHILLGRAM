@@ -133,6 +133,15 @@ void Snooze::cancel(not_null<History*> history) {
 	check();
 }
 
+std::vector<std::pair<PeerId, TimeId>> Snooze::list() const {
+	auto result = std::vector<std::pair<PeerId, TimeId>>();
+	for (const auto &[peerId, entry] : _entries) {
+		result.emplace_back(peerId, entry.until);
+	}
+	ranges::sort(result, ranges::less(), &std::pair<PeerId, TimeId>::second);
+	return result;
+}
+
 QString Snooze::path() const {
 	return cWorkingDir()
 		+ u"tdata/shillgramm_snooze_%1.json"_q.arg(
@@ -229,6 +238,10 @@ void Snooze::wake(not_null<History*> history, const Entry &entry) {
 	if (const auto window = Core::App().activePrimaryWindow()) {
 		QApplication::alert(window->widget(), 0);
 	}
+}
+
+QString SnoozeWhenText(TimeId when) {
+	return FormatWhen(when);
 }
 
 bool CanSnooze(not_null<History*> history) {

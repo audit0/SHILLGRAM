@@ -927,3 +927,9 @@ dialogsUnconfirmedAuthButtonNo: RoundButton(dialogsUnconfirmedAuthButton) {
 		color: attentionButtonBgRipple;
 	}
 }
+
+// ShillGramm: Cmd+K palette box without the buttons strip.
+shillPaletteBox: Box(defaultBox) {
+	buttonPadding: margins(0px, 0px, 0px, 8px);
+	buttonHeight: 0px;
+}

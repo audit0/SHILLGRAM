@@ -36,6 +36,7 @@ public:
 	[[nodiscard]] TimeId until(not_null<History*> history) const;
 	void snooze(not_null<History*> history, TimeId until);
 	void cancel(not_null<History*> history);
+	[[nodiscard]] std::vector<std::pair<PeerId, TimeId>> list() const;
 
 private:
 	struct Entry {
@@ -63,5 +64,6 @@ void FillSnoozeMenu(
 	not_null<History*> history);
 
 [[nodiscard]] QString SnoozeMenuLabel(not_null<History*> history);
+[[nodiscard]] QString SnoozeWhenText(TimeId when);
 
 } // namespace Shill

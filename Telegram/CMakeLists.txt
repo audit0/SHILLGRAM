@@ -2222,6 +2222,8 @@ PRIVATE
     apiwrap.cpp
     apiwrap.h
     api_credentials.cpp
+    shillgramm/shill_palette.cpp
+    shillgramm/shill_palette.h
     shillgramm/shill_snooze.cpp
     shillgramm/shill_snooze.h
     config.h

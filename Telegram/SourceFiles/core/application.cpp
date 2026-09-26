@@ -7,6 +7,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "core/application.h"
 
+#include "shillgramm/shill_palette.h"
+
 #include "data/data_abstract_structure.h"
 #include "data/data_channel.h"
 #include "data/data_forum.h"
@@ -696,6 +698,8 @@ bool Application::eventFilter(QObject *object, QEvent *e) {
 			return true;
 		} else if (Shortcuts::HandlePossibleChatSwitch(event)) {
 			return true;
+		} else if (Shill::HandlePaletteKeyPress(event)) {
+			return true;
 		}
 	} break;
 	case QEvent::MouseButtonPress:
@@ -725,7 +729,9 @@ bool Application::eventFilter(QObject *object, QEvent *e) {
 		const auto event = static_cast<QShortcutEvent*>(e);
 		DEBUG_LOG(("Shortcut event caught: %1"
 			).arg(event->key().toString()));
-		if (Shortcuts::HandleEvent(object, event)) {
+		if (Shill::HandlePaletteShortcutEvent(object, event)) {
+			return true;
+		} else if (Shortcuts::HandleEvent(object, event)) {
 			return true;
 		}
 	} break;
