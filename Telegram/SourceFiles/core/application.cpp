@@ -276,6 +276,21 @@ void Application::run() {
 
 	startLocalStorage();
 
+	// ShillGramm: system font (SF Pro on macOS) by default, like the agents
+	// panel; applied once, the user can still pick another font later.
+	{
+		const auto marker = cWorkingDir() + u"tdata/shillgramm_font_v1"_q;
+		if (!QFile::exists(marker)) {
+			if (settings().customFontFamily().isEmpty()) {
+				settings().setCustomFontFamily(style::SystemFontTag());
+				saveSettingsDelayed();
+			}
+			auto file = QFile(marker);
+			if (file.open(QIODevice::WriteOnly)) {
+				file.close();
+			}
+		}
+	}
 	style::SetCustomFont(settings().customFontFamily());
 	style::internal::StartFonts();
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Builds the ShillGramm monochrome themes (docs D-05 of the Flutter client).
+"""Builds the ShillGramm themes in the style of the agents panel.
 
 Day theme: the built-in palette (lib_ui/ui/colors.palette) made monochrome.
 Night theme: the built-in night theme made monochrome.
@@ -21,7 +21,8 @@ def parse(text):
     for line in text.splitlines():
         m = LINE.match(line.strip())
         if m:
-            result[m.group(1)] = m.group(2).strip()
+            # 'value | fallback' -> keep the primary value only.
+            result[m.group(1)] = m.group(2).split('|')[0].strip()
     return result
 
 
@@ -62,29 +63,52 @@ def meaningful(h, s):
 
 KEEP_COLOUR = ('callAnswer', 'callHangup', 'callArrowMissed')
 
+# Palette of the agents panel (Панель управления агентами Claude) as it is
+# rendered: cool neutrals, orange "hot" counters, green only for links/focus.
+DAY = dict(bg='#ffffff', panel='#ffffff', side='#f7f7f8', soft='#f3f3f5',
+           pill='#e6e6ea', line='#e7e7ea', lineSoft='#f0f0f2', ink='#18191b',
+           inkOver='#000000', muted='#5e6268', faint='#8a8e95', accent='#1d6b48',
+           accentSoft='#e9f3ee', sel='#eef2fb', selLine='#c9d5f2', hot='#b25a0c',
+           note='#fdf5ea', noteLine='#f1dcc0', ok='#1d7a50', warn='#b25a0c', bad='#c0362c')
+NIGHT = dict(bg='#161618', panel='#161618', side='#1c1c1f', soft='#232326',
+             pill='#2c2c30', line='#2c2c30', lineSoft='#222225', ink='#ececef',
+             inkOver='#ffffff', muted='#a1a4ab', faint='#7c8088', accent='#5fb38a',
+             accentSoft='#1c2a23', sel='#1f2636', selLine='#34405a', hot='#e08a3c',
+             note='#2a2218', noteLine='#4a3a24', ok='#5fb38a', warn='#e08a3c', bad='#ef6a5e',
+             button='#ececef')
+
+
+def warm(l, a='', dark=False):
+    """Cool neutral like the panel's grays (#f7f7f8, #e7e7ea)."""
+    return hexc(l, l, min(1, l + 0.004), a)
+
 
 def mono(key, value, dark):
+    P = NIGHT if dark else DAY
     r, g, b, a = rgba(value)
     h, l, s = colorsys.rgb_to_hls(r, g, b)
     if key.startswith(KEEP_COLOUR):
         return value  # answer green / hang up red keep their meaning
     decorative = 'Peer' in key or 'Userpic' in key
     if meaningful(h, s) and not decorative:
-        return value
+        deg = h * 360
+        return (P['warn'] if 28 < deg < 52 else P['bad']) + a
     fg = 'Fg' in key
     if 'Userpic' in key:
         m = re.search(r'Peer(\d)', key)
         n = int(m.group(1)) if m else 0
-        return gray((0.30 if dark else 0.22) + 0.06 * (n % 4), a)
-    if decorative and 'Userpic' not in key:  # member name colours
-        return gray((0.78 if dark else 0.30) + 0.04 * (sum(map(ord, key)) % 3), a)
+        return warm((0.30 if dark else 0.24) + 0.06 * (n % 4), a, dark)
+    if decorative:  # member name colours
+        return warm((0.78 if dark else 0.28) + 0.04 * (sum(map(ord, key)) % 3), a, dark)
     if s > 0.25:  # an accent colour
-        if dark:
-            return gray(0.62 + 0.33 * l if fg else 0.18 + 0.55 * l, a)
-        return gray(l if l >= 0.8 else 0.07 + 0.25 * (l - 0.3), a)
-    if dark and l < 0.3:  # bluish night surfaces -> near black
-        return gray(l * 0.62, a)
-    return gray(l, a)
+        if fg:
+            return P['accent'] + a
+        if l >= 0.8 or (dark and l < 0.3):
+            return P['sel'] + a
+        return P['ink'] + a
+    if dark and l < 0.3:  # bluish night surfaces -> warm near black
+        return warm(l * 0.62, a, True)
+    return warm(l, a, dark)
 
 
 def build(pal, dark):
@@ -107,47 +131,91 @@ def swap_out(theme, other, dark):
         if twin in other:
             theme[k] = resolve(other, twin)
         else:
-            theme[k] = '#5e5e63' if dark else '#b8b8bd'
+            theme[k] = (NIGHT if dark else DAY)['faint']
 
 
 day_src, nite_src = dict(day), dict(nite)
 swap_out(day, nite_src, False)
 swap_out(nite, day_src, True)
 
-SIDEBAR_DAY = {
-    'sideBarBg': '#f2f2f4', 'sideBarBgActive': '#e2e2e6', 'sideBarBgRipple': '#d8d8dc',
-    'sideBarTextFg': '#6a6a6f', 'sideBarTextFgActive': '#1d1d1f',
-    'sideBarIconFg': '#6a6a6f', 'sideBarIconFgActive': '#1d1d1f',
-    'sideBarBadgeBg': '#1d1d1f', 'sideBarBadgeBgActive': '#1d1d1f',
-    'sideBarBadgeBgMuted': '#a4a4a9', 'sideBarBadgeBgMutedActive': '#a4a4a9',
-    'sideBarBadgeFg': '#ffffff',
-}
-SIDEBAR_NIGHT = {
-    'sideBarBg': '#111113', 'sideBarBgActive': '#1f1f22', 'sideBarBgRipple': '#2c2c30',
-    'sideBarTextFg': '#98989d', 'sideBarTextFgActive': '#f5f5f7',
-    'sideBarIconFg': '#98989d', 'sideBarIconFgActive': '#f5f5f7',
-    'sideBarBadgeBg': '#f5f5f7', 'sideBarBadgeBgActive': '#f5f5f7',
-    'sideBarBadgeBgMuted': '#5e5e63', 'sideBarBadgeBgMutedActive': '#5e5e63',
-    'sideBarBadgeFg': '#111113',
-}
-day.update(SIDEBAR_DAY)
-nite.update(SIDEBAR_NIGHT)
-day.update({
-    'windowBg': '#ffffff', 'windowFg': '#1d1d1f', 'windowBgOver': '#f2f2f4',
-    'windowSubTextFg': '#6a6a6f', 'windowBgActive': '#1d1d1f',
-    'windowActiveTextFg': '#1d1d1f', 'activeButtonBg': '#1d1d1f',
-    'activeButtonBgOver': '#3a3a3e', 'activeButtonFg': '#ffffff',
-    'msgInBg': '#f0f0f2', 'msgInBgSelected': '#e2e2e6',
-    'msgOutBg': '#1d1d1f', 'msgOutBgSelected': '#3a3a3e',
-    'historyTextOutFg': '#ffffff', 'msgOutDateFg': '#b8b8bd',
-})
-nite.update({
-    'windowBg': '#0b0b0c', 'windowFg': '#f5f5f7', 'windowBgOver': '#1c1c1f',
-    'windowSubTextFg': '#98989d', 'windowActiveTextFg': '#f5f5f7',
-    'msgInBg': '#1f1f22', 'msgInBgSelected': '#2c2c30',
-    'msgOutBg': '#e8e8ed', 'msgOutBgSelected': '#d0d0d6',
-    'historyTextOutFg': '#111113', 'msgOutDateFg': '#5e5e63',
-})
+
+def common(P, dark):
+    btn = P['ink']
+    btnFg = P['bg']
+    return {
+        'windowBg': P['panel'], 'windowFg': P['ink'], 'windowBgOver': P['side'],
+        'windowBgRipple': P['pill'], 'windowSubTextFg': P['muted'],
+        'windowSubTextFgOver': P['faint'], 'windowBoldFg': P['ink'],
+        'windowBgActive': btn, 'windowFgActive': btnFg,
+        'windowActiveTextFg': P['accent'], 'windowShadowFgFallback': P['line'],
+        'activeButtonBg': btn, 'activeButtonBgOver': P['inkOver'],
+        'activeButtonBgRipple': P['muted'], 'activeButtonFg': btnFg,
+        'activeButtonFgOver': btnFg, 'activeLineFg': P['ink'],
+        'lightButtonBg': P['panel'], 'lightButtonBgOver': P['soft'],
+        'lightButtonBgRipple': P['pill'], 'lightButtonFg': P['ink'],
+        'lightButtonFgOver': P['ink'],
+        'menuBgOver': P['soft'], 'menuBgRipple': P['pill'],
+        'filterInputBorderFg': P['line'], 'filterInputInactiveBg': P['side'],
+        'filterInputActiveBg': P['panel'],
+        'inputBorderFg': P['line'], 'scrollBarBg': P['faint'] + '66',
+        'dialogsBg': P['panel'], 'dialogsBgOver': P['side'],
+        'dialogsBgActive': P['sel'], 'dialogsRippleBgActive': P['selLine'],
+        'dialogsNameFg': P['ink'], 'dialogsNameFgActive': P['ink'],
+        'dialogsNameFgOver': P['ink'],
+        'dialogsTextFg': P['muted'], 'dialogsTextFgActive': P['muted'],
+        'dialogsTextFgOver': P['muted'],
+        'dialogsTextFgService': P['ink'], 'dialogsTextFgServiceActive': P['ink'],
+        'dialogsTextFgServiceOver': P['ink'],
+        'dialogsDateFg': P['faint'], 'dialogsDateFgActive': P['faint'],
+        'dialogsDateFgOver': P['faint'],
+        'dialogsUnreadBg': P['hot'], 'dialogsUnreadFg': '#ffffff',
+        'dialogsUnreadBgOver': P['hot'], 'dialogsUnreadBgActive': P['hot'],
+        'dialogsUnreadFgActive': '#ffffff', 'dialogsUnreadFgOver': '#ffffff',
+        'dialogsUnreadBgMuted': P['faint'], 'dialogsUnreadBgMutedOver': P['faint'],
+        'dialogsUnreadBgMutedActive': P['faint'],
+        'dialogsSentIconFg': P['accent'], 'dialogsSentIconFgActive': P['accent'],
+        'dialogsSentIconFgOver': P['accent'],
+        'dialogsVerifiedIconBg': P['ink'], 'dialogsVerifiedIconBgActive': P['ink'],
+        'dialogsVerifiedIconFgActive': P['panel'],
+        'dialogsChatIconFgActive': P['ink'], 'dialogsOnlineBadgeFg': P['ok'],
+        'dialogsMenuIconFg': P['muted'],
+        'sideBarBg': P['side'], 'sideBarBgActive': P['pill'], 'sideBarBgRipple': P['pill'],
+        'sideBarTextFg': P['muted'], 'sideBarTextFgActive': P['ink'],
+        'sideBarIconFg': P['muted'], 'sideBarIconFgActive': P['ink'],
+        'sideBarBadgeBg': P['hot'], 'sideBarBadgeBgActive': P['hot'],
+        'sideBarBadgeBgMuted': P['faint'], 'sideBarBadgeBgMutedActive': P['faint'],
+        'sideBarBadgeFg': '#ffffff',
+        'shadowFg': '#0000001a' if not dark else '#00000055',
+        'historyComposeAreaBg': P['panel'], 'historyComposeAreaFg': P['ink'],
+        'historyComposeAreaFgService': P['muted'], 'historyComposeIconFg': P['faint'],
+        'historyComposeIconFgOver': P['ink'], 'historySendIconFg': P['ink'],
+        'historySendIconFgOver': P['inkOver'], 'historyComposeButtonBg': P['panel'],
+        'historyComposeButtonBgOver': P['soft'], 'historyReplyBg': P['panel'],
+        'historyReplyIconFg': P['accent'], 'topBarBg': P['panel'],
+        'placeholderFg': P['faint'], 'placeholderFgActive': P['faint'],
+        'msgInBg': P['soft'], 'msgInBgSelected': P['pill'],
+        'msgInShadow': '#00000000', 'msgInShadowSelected': '#00000000',
+        'historyTextInFg': P['ink'], 'historyLinkInFg': P['accent'],
+        'msgInDateFg': P['faint'], 'msgInServiceFg': P['accent'],
+        'msgOutBg': P['sel'], 'msgOutBgSelected': P['selLine'],
+        'msgOutShadow': '#00000000', 'msgOutShadowSelected': '#00000000',
+        'historyTextOutFg': P['ink'], 'historyLinkOutFg': P['accent'],
+        'msgOutDateFg': P['faint'], 'msgOutServiceFg': P['accent'],
+        'historyOutIconFg': P['accent'], 'historyOutIconFgSelected': P['accent'],
+        'msgServiceBg': P['soft'], 'msgServiceFg': P['muted'],
+        'historyUnreadBarBg': P['note'], 'historyUnreadBarBorder': P['noteLine'],
+        'historyUnreadBarFg': P['hot'],
+        'historyToDownBg': P['panel'], 'historyToDownBgOver': P['soft'],
+        'historyToDownFg': P['muted'], 'historyToDownShadow': '#00000022',
+        'boxBg': P['panel'], 'boxTitleFg': P['ink'], 'boxDividerBg': P['side'],
+        'checkboxFg': P['faint'],
+        'titleBg': P['side'], 'titleBgActive': P['side'], 'titleFg': P['muted'],
+        'titleFgActive': P['ink'],
+    }
+
+
+day.update(common(DAY, False))
+nite.update(common(NIGHT, True))
 
 
 def solid_png(hex6):
@@ -158,7 +226,7 @@ def solid_png(hex6):
             + chunk(b'IDAT', zlib.compress(raw)) + chunk(b'IEND', b''))
 
 
-for name, theme, bg in (('shillgramm-day', day, '#ffffff'), ('shillgramm-night', nite, '#000000')):
+for name, theme, bg in (('shillgramm-day', day, DAY['panel']), ('shillgramm-night', nite, NIGHT['panel'])):
     text = ''.join(f'{k}: {theme[k]};\n' for k in keys)
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as z:
