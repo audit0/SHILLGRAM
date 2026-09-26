@@ -670,6 +670,7 @@ private:
 	bool _skipTopDialog = false;
 	Row *_selected = nullptr;
 	Row *_hoverFadeRow = nullptr;
+	std::unique_ptr<RightButton> _hoverReadButton; // ShillGramm: "Mark as read" on hover
 	Ui::Animations::Simple _hoverFadeAnimation;
 	Row *_pressed = nullptr;
 	MsgId _pressedTopicJumpRootId;

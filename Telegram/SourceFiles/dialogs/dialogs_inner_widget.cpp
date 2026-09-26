@@ -172,6 +172,18 @@ constexpr auto kPreviewPostsLimit = 3;
 	return nullptr;
 }
 
+// ShillGramm: a chat row with unread messages gets a hover "Mark as read".
+[[nodiscard]] History *MaybeUnreadHistory(Row *row) {
+	if (row) {
+		if (const auto history = row->key().history()) {
+			if (history->unreadCount() || history->unreadMark()) {
+				return history;
+			}
+		}
+	}
+	return nullptr;
+}
+
 [[nodiscard]] object_ptr<SearchEmpty> MakeSearchEmpty(
 		QWidget *parent,
 		SearchState state,
@@ -1792,6 +1804,16 @@ void InnerWidget::fillRightButton(
 			return &(it->second);
 		}
 	}
+	if (row && row == _selected && !_narrowRatio && MaybeUnreadHistory(row)) {
+		if (!_hoverReadButton) {
+			_hoverReadButton = std::make_unique<RightButton>();
+			fillRightButton(
+				*_hoverReadButton,
+				tr::lng_context_mark_read(tr::now, tr::marked),
+				st::dialogRowOpenBot);
+		}
+		return _hoverReadButton.get();
+	}
 	return nullptr;
 }
 
@@ -2227,6 +2249,8 @@ bool InnerWidget::lookupIsInBotAppButton(
 		if (it != _rightButtons.end()) {
 			return lookupIsInRightButton(it->second, localPosition);
 		}
+	} else if (MaybeUnreadHistory(row) && _hoverReadButton) {
+		return lookupIsInRightButton(*_hoverReadButton, localPosition);
 	}
 	return false;
 }
@@ -3142,6 +3166,8 @@ void InnerWidget::mousePressReleased(
 					: _filterResults[filteredPressed].row.get();
 				if (const auto user = MaybeBotWithApp(row)) {
 					_openBotMainAppRequests.fire(peerToUser(user->id));
+				} else if (const auto history = MaybeUnreadHistory(row)) {
+					Window::MarkAsReadThread(history);
 				}
 			} else if (pressedRightButton && peerSearchPressed >= 0) {
 				showSponsoredMenu(peerSearchPressed, globalPosition);
@@ -3194,6 +3220,8 @@ void InnerWidget::setPressed(
 					if (it != _rightButtons.end()) {
 						_pressedRightButtonData = &(it->second);
 					}
+				} else if (MaybeUnreadHistory(pressed) && _hoverReadButton) {
+					_pressedRightButtonData = _hoverReadButton.get();
 				}
 			}
 			const auto history = pressedTopicJump
