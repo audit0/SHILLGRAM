@@ -2221,6 +2221,7 @@ PRIVATE
     window/themes/window_themes_generate_name.h
     apiwrap.cpp
     apiwrap.h
+    api_credentials.cpp
     config.h
     logs.cpp
     logs.h
@@ -2495,10 +2496,15 @@ source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/Telegram PREFIX Resources FILES ${
 
 target_include_directories(Telegram PRIVATE ${src_loc})
 
+# AyuGram fork: the API keys reach only this file (see config.h).
+set_source_files_properties(${src_loc}/api_credentials.cpp
+PROPERTIES
+    COMPILE_DEFINITIONS "TDESKTOP_API_ID=${TDESKTOP_API_ID};TDESKTOP_API_HASH=${TDESKTOP_API_HASH}"
+    SKIP_PRECOMPILE_HEADERS ON
+)
+
 target_compile_definitions(Telegram
 PRIVATE
-    TDESKTOP_API_ID=${TDESKTOP_API_ID}
-    TDESKTOP_API_HASH=${TDESKTOP_API_HASH}
     G_LOG_DOMAIN="Telegram"
     U_STATIC_IMPLEMENTATION=1 # AyuGram: do not use __declspec(dllimport) when including icu headers
 )
