@@ -67,7 +67,7 @@ KEEP_COLOUR = ('callAnswer', 'callHangup', 'callArrowMissed')
 # rendered: cool neutrals, orange "hot" counters, green only for links/focus.
 # Apple system neutrals with the agents panel's restraint: graphite for
 # emphasis, one quiet green for links, no loud colours.
-DAY = dict(bg='#f5f5f7', panel='#ffffff', side='#f5f5f7', soft='#f2f2f4',
+DAY = dict(bg='#efeff2', panel='#ffffff', side='#f5f5f7', soft='#f2f2f4',
            pill='#e8e8ed', line='#e5e5ea', lineSoft='#ededf0', ink='#1d1d1f',
            inkOver='#000000', muted='#6e6e73', faint='#86868b', accent='#1d6b48',
            accentSoft='#e4efe9', sel='#e8e8ed', selLine='#d8d8de', hot='#3a3a3c',
@@ -226,6 +226,24 @@ def common(P, dark):
 
 day.update(common(DAY, False))
 nite.update(common(NIGHT, True))
+
+
+# Readability: bot buttons and service pills get graphite text on a
+# clearly visible plate instead of gray on pale gray.
+day.update({'msgServiceBg': '#e6e6eb', 'msgServiceFg': '#1d1d1f',
+            'msgServiceBgSelected': '#d1d1d6', 'botKbBg': '#ebebef',
+            'botKbDownBg': '#dcdce1', 'botKbColor': '#1d1d1f'})
+nite.update({'msgServiceBg': '#2c2c2e', 'msgServiceFg': '#f5f5f7',
+             'msgServiceBgSelected': '#3a3a3c', 'botKbBg': '#2c2c2e',
+             'botKbDownBg': '#3a3a3c', 'botKbColor': '#f5f5f7'})
+
+# Glass: the window behind these areas is the macOS vibrancy layer.
+GLASS_KEYS = ('dialogsBg', 'sideBarBg', 'titleBg', 'titleBgActive', 'topBarBg')
+for theme, alpha in ((day, 'e6'), (nite, 'd9')):
+    for k in GLASS_KEYS:
+        v = theme[k]
+        if v.startswith('#') and len(v) == 7:
+            theme[k] = v + alpha
 
 
 def solid_png(hex6):

@@ -6,6 +6,7 @@ For license and copyright information please follow this link:
 https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "platform/mac/main_window_mac.h"
+#include "window/themes/window_theme.h"
 
 #include "data/data_session.h"
 #include "core/application.h"
@@ -245,6 +246,33 @@ void MainWindow::initHook() {
 	if (auto view = reinterpret_cast<NSView*>(winId())) {
 		if (auto window = [view window]) {
 			_private->setNativeWindow(window, view);
+
+			// ShillGramm glass: system blur of what is behind the window,
+			// visible where the theme paints with transparency.
+			[window setOpaque:NO];
+			[window setBackgroundColor:[NSColor clearColor]];
+			NSView *host = [view superview] ? [view superview] : view;
+			NSVisualEffectView *glass = [[NSVisualEffectView alloc]
+				initWithFrame:[host bounds]];
+			glass.material = NSVisualEffectMaterialSidebar;
+			glass.blendingMode = NSVisualEffectBlendingModeBehindWindow;
+			glass.state = NSVisualEffectStateFollowsWindowActiveState;
+			glass.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
+			if (host != view) {
+				[host addSubview:glass
+					positioned:NSWindowBelow
+					relativeTo:view];
+			} else {
+				[host addSubview:glass positioned:NSWindowBelow relativeTo:nil];
+			}
+			// Glass tint follows the app theme, not the macOS appearance:
+			// light theme over dark glass looks muddy and hard to read.
+			Window::Theme::IsNightModeValue(
+			) | rpl::on_next([=](bool night) {
+				glass.appearance = [NSAppearance appearanceNamed:(night
+					? NSAppearanceNameDarkAqua
+					: NSAppearanceNameAqua)];
+			}, lifetime());
 			if (!base::options::lookup<bool>(
 					Window::kOptionDisableTouchbar).value()) {
 				_private->initTouchBar(window, &controller());

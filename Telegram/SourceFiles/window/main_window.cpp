@@ -390,7 +390,14 @@ QImage WithSmallCounter(QImage image, CounterLayerArgs &&args) {
 }
 
 MainWindow::MainWindow(not_null<Controller*> controller)
+#ifdef Q_OS_MAC
+// ShillGramm: a translucent window lets the macOS glass (vibrancy) behind
+// the chat list show through the theme's semi-transparent colours.
+: Ui::RpWindow(true)
+, _controller(controller)
+#else // Q_OS_MAC
 : _controller(controller)
+#endif // Q_OS_MAC
 , _positionUpdatedTimer([=] { savePosition(); })
 , _outdated(Ui::CreateOutdatedBar(body(), cWorkingDir()))
 , _screenReaderBar(Ui::CreateScreenReaderBar(body(), [=] {
