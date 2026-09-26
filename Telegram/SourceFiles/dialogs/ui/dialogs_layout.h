@@ -56,7 +56,7 @@ struct TopicJumpCache {
 
 // ShillGramm: icon buttons (read / pin / mute) over the hovered chat row.
 struct HoverActions {
-	std::array<const style::icon*, 3> icons = {};
+	std::array<const style::icon*, 4> icons = {};
 	int count = 0;
 	int over = -1;
 };

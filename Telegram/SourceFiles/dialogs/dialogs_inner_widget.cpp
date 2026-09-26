@@ -13,6 +13,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "dialogs/ui/dialogs_layout.h"
 #include "dialogs/ui/dialogs_quick_action.h"
 #include "dialogs/ui/dialogs_quick_action_context.h"
+#include "shillgramm/shill_snooze.h"
 #include "dialogs/ui/dialogs_message_view.h"
 #include "dialogs/ui/dialogs_video_userpic.h"
 #include "dialogs/dialogs_indexed_list.h"
@@ -173,6 +174,9 @@ constexpr auto kPreviewPostsLimit = 3;
 	}
 	return nullptr;
 }
+
+// ShillGramm: hover strip kind for "Snooze", beside QuickDialogAction values.
+constexpr auto kHoverSnooze = 100;
 
 [[nodiscard]] object_ptr<SearchEmpty> MakeSearchEmpty(
 		QWidget *parent,
@@ -1838,6 +1842,12 @@ const Ui::HoverActions *InnerWidget::prepareHoverActions(Row *row) {
 	actions->over = -1;
 	const auto add = [&](Ui::QuickDialogAction action) {
 		using Label = Ui::QuickDialogActionLabel;
+		if (int(action) == kHoverSnooze) {
+			_hoverActionKinds[actions->count] = kHoverSnooze;
+			actions->icons[actions->count] = &st::menuIconTimer;
+			++actions->count;
+			return;
+		}
 		const auto icon = [&]() -> const style::icon* {
 			switch (ResolveQuickDialogLabel(history, action, _filterId)) {
 			case Label::Read: return &st::menuIconMarkRead;
@@ -1849,7 +1859,7 @@ const Ui::HoverActions *InnerWidget::prepareHoverActions(Row *row) {
 			}
 		}();
 		if (icon) {
-			_hoverActionKinds[actions->count] = action;
+			_hoverActionKinds[actions->count] = int(action);
 			actions->icons[actions->count] = icon;
 			++actions->count;
 		}
@@ -1861,6 +1871,9 @@ const Ui::HoverActions *InnerWidget::prepareHoverActions(Row *row) {
 		add(Ui::QuickDialogAction::Pin);
 	}
 	add(Ui::QuickDialogAction::Mute);
+	if (Shill::CanSnooze(history)) {
+		add(Ui::QuickDialogAction(kHoverSnooze));
+	}
 	return actions->count ? actions : nullptr;
 }
 
@@ -1887,19 +1900,34 @@ int InnerWidget::hoverActionAt(Row *row, QPoint localPosition) {
 	return -1;
 }
 
-std::optional<Ui::QuickDialogAction> InnerWidget::hoverActionAtGlobal(
-		Row *row,
-		QPoint globalPosition) {
+int InnerWidget::hoverActionAtGlobal(Row *row, QPoint globalPosition) {
 	if (!row || _state != WidgetState::Default) {
-		return std::nullopt;
+		return -1;
 	}
 	const auto local = mapFromGlobal(globalPosition);
 	const auto index = hoverActionAt(
 		row,
 		QPoint(local.x(), local.y() - dialogsOffset() - row->top()));
-	return (index >= 0)
-		? std::make_optional(_hoverActionKinds[index])
-		: std::nullopt;
+	return (index >= 0) ? _hoverActionKinds[index] : -1;
+}
+
+void InnerWidget::performHoverAction(not_null<Row*> row, int kind) {
+	const auto history = row->key().history();
+	if (!history) {
+		return;
+	} else if (kind == kHoverSnooze) {
+		_menu = base::make_unique_q<Ui::PopupMenu>(
+			this,
+			st::popupMenuWithIcons);
+		Shill::FillSnoozeMenu(_menu.get(), _controller, history);
+		_menu->popup(QCursor::pos());
+		return;
+	}
+	PerformQuickDialogAction(
+		_controller,
+		history->peer,
+		Ui::QuickDialogAction(kind),
+		_filterId);
 }
 
 Ui::VideoUserpic *InnerWidget::validateVideoUserpic(not_null<Row*> row) {
@@ -2630,7 +2658,7 @@ void InnerWidget::mousePressEvent(QMouseEvent *e) {
 	_pressButton = e->button();
 	_hoverActionPressed = (_pressButton == Qt::LeftButton)
 		? hoverActionAtGlobal(_selected, e->globalPos())
-		: std::nullopt;
+		: -1;
 	setPressed(_selected, _selectedTopicJump, _selectedRightButton);
 	setCollapsedPressed(_collapsedSelected);
 	setHashtagPressed(_hashtagSelected);
@@ -2673,7 +2701,7 @@ void InnerWidget::mousePressEvent(QMouseEvent *e) {
 		};
 		const auto origin = e->pos()
 			- QPoint(0, dialogsOffset() + _pressed->top());
-		if (_hoverActionPressed) {
+		if (_hoverActionPressed >= 0) {
 		} else if ((_pressButton == Qt::MiddleButton)
 			&& addQuickActionRipple(row, updateCallback)) {
 		} else if (addRightButtonRipple(origin, updateCallback)) {
@@ -3164,7 +3192,7 @@ void InnerWidget::mousePressReleased(
 		_controller->cancelScheduledPreview();
 	}
 	const auto pressButton = base::take(_pressButton);
-	const auto hoverActionPressed = base::take(_hoverActionPressed);
+	const auto hoverActionPressed = std::exchange(_hoverActionPressed, -1);
 
 	const auto wasDragging = finishReorderOnRelease();
 
@@ -3226,20 +3254,14 @@ void InnerWidget::mousePressReleased(
 		}
 	}
 	updateSelectedRow();
-	if (hoverActionPressed
+	if (hoverActionPressed >= 0
 		&& !wasDragging
 		&& button == Qt::LeftButton
 		&& pressed
 		&& pressed == _selected) {
-		const auto history = pressed->key().history();
-		if (history
-			&& hoverActionAtGlobal(pressed, globalPosition)
+		if (hoverActionAtGlobal(pressed, globalPosition)
 				== hoverActionPressed) {
-			PerformQuickDialogAction(
-				_controller,
-				history->peer,
-				*hoverActionPressed,
-				_filterId);
+			performHoverAction(pressed, hoverActionPressed);
 		}
 	} else if (!wasDragging && button == Qt::LeftButton) {
 		if ((collapsedPressed >= 0 && collapsedPressed == _collapsedSelected)

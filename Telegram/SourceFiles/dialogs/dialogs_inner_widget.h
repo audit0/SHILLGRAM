@@ -631,9 +631,8 @@ private:
 	[[nodiscard]] RightButton *maybeCacheRightButton(Row *row);
 	[[nodiscard]] const Ui::HoverActions *prepareHoverActions(Row *row);
 	[[nodiscard]] int hoverActionAt(Row *row, QPoint localPosition);
-	[[nodiscard]] std::optional<Ui::QuickDialogAction> hoverActionAtGlobal(
-		Row *row,
-		QPoint globalPosition);
+	[[nodiscard]] int hoverActionAtGlobal(Row *row, QPoint globalPosition);
+	void performHoverAction(not_null<Row*> row, int kind);
 	void fillRightButton(
 		RightButton &button,
 		const TextWithEntities &text,
@@ -679,8 +678,8 @@ private:
 	Row *_hoverFadeRow = nullptr;
 	// ShillGramm: read / pin / mute buttons over the hovered row.
 	std::unique_ptr<Ui::HoverActions> _hoverActions;
-	std::array<Ui::QuickDialogAction, 3> _hoverActionKinds = {};
-	std::optional<Ui::QuickDialogAction> _hoverActionPressed;
+	std::array<int, 4> _hoverActionKinds = {};
+	int _hoverActionPressed = -1;
 	int _hoverActionSelected = -1;
 	Ui::Animations::Simple _hoverFadeAnimation;
 	Row *_pressed = nullptr;

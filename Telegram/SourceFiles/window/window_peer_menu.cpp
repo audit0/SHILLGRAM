@@ -7,6 +7,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "window/window_peer_menu.h"
 
+#include "shillgramm/shill_snooze.h"
+
 #include "base/call_delayed.h"
 #include "menu/menu_check_item.h"
 #include "boxes/about_box.h"
@@ -314,6 +316,7 @@ private:
 	void addToggleFolder();
 	void addToggleUnreadMark();
 	void addToggleArchive();
+	void addSnooze();
 	void addClearHistory();
 	void addDeleteChat();
 	void addLeaveChat();
@@ -822,6 +825,27 @@ void Filler::addUngroup() {
 	_addAction(tr::lng_community_ungroup(tr::now), [=] {
 		PeerMenuUngroupCommunity(controller, channel);
 	}, &st::menuIconExpand);
+}
+
+void Filler::addSnooze() {
+	if (!_peer
+		|| _topic
+		|| _request.section == Section::SubsectionTabsMenu) {
+		return;
+	}
+	const auto history = _request.key.history();
+	if (!history || !Shill::CanSnooze(history)) {
+		return;
+	}
+	const auto controller = _controller;
+	_addAction(PeerMenuCallback::Args{
+		.text = Shill::SnoozeMenuLabel(history),
+		.handler = nullptr,
+		.icon = &st::menuIconTimer,
+		.fillSubmenu = [&](not_null<Ui::PopupMenu*> menu) {
+			Shill::FillSnoozeMenu(menu, controller, history);
+		},
+	});
 }
 
 void Filler::addToggleArchive() {
@@ -1853,6 +1877,7 @@ void Filler::fillContextMenuActions() {
 	addUngroup();
 	addHidePromotion();
 	addToggleArchive();
+	addSnooze();
 	addTogglePin();
 	if (ViewProfileInChatsListContextMenu.value()) {
 		addInfo();
