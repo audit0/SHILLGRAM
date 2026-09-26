@@ -165,6 +165,10 @@ dialogRowOpenBot: DialogRightButton {
 	}
 	margin: margins(0px, 32px, 10px, 0px);
 }
+dialogsHoverActionSize: 30px;
+dialogsHoverActionSkip: 2px;
+dialogsHoverActionRight: 10px;
+dialogsHoverActionBgOver: windowBgRipple;
 dialogRowOpenBotRecent: DialogRightButton(dialogRowOpenBot) {
 	margin: margins(0px, 32px, 16px, 0px);
 }

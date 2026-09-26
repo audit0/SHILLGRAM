@@ -11,6 +11,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "dialogs/ui/chat_search_empty.h"
 #include "dialogs/ui/chat_search_in.h"
 #include "dialogs/ui/dialogs_layout.h"
+#include "dialogs/ui/dialogs_quick_action.h"
+#include "dialogs/ui/dialogs_quick_action_context.h"
 #include "dialogs/ui/dialogs_message_view.h"
 #include "dialogs/ui/dialogs_video_userpic.h"
 #include "dialogs/dialogs_indexed_list.h"
@@ -166,18 +168,6 @@ constexpr auto kPreviewPostsLimit = 3;
 						return user;
 					}
 				}
-			}
-		}
-	}
-	return nullptr;
-}
-
-// ShillGramm: a chat row with unread messages gets a hover "Mark as read".
-[[nodiscard]] History *MaybeUnreadHistory(Row *row) {
-	if (row) {
-		if (const auto history = row->key().history()) {
-			if (history->unreadCount() || history->unreadMark()) {
-				return history;
 			}
 		}
 	}
@@ -1074,6 +1064,22 @@ void InnerWidget::paintEvent(QPaintEvent *e) {
 		const auto expanding = (forum || monoforum)
 			&& (history->peer->id == childListShown.peerId);
 		context.rightButton = maybeCacheRightButton(row);
+		context.hoverActions = nullptr;
+		if (row == _selected
+			&& !_menuRow.key
+			&& !_chatPreviewRow.key
+			&& !context.rightButton) {
+			const auto local = _lastMousePosition
+				? mapFromGlobal(*_lastMousePosition)
+				: QPoint(-1, -1);
+			const auto over = hoverActionAt(
+				row,
+				QPoint(local.x(), local.y() - dialogsOffset() - row->top()));
+			if (_hoverActions && _hoverActions->count) {
+				_hoverActions->over = over;
+				context.hoverActions = _hoverActions.get();
+			}
+		}
 		if (history) {
 			if (_activeQuickAction
 				&& (_activeQuickAction->data.msgBareId
@@ -1114,6 +1120,7 @@ void InnerWidget::paintEvent(QPaintEvent *e) {
 			&& !cacheSelected
 			&& !context.quickActionContext
 			&& !context.rightButton
+			&& !context.hoverActions
 			&& !expanding
 			&& !childListShown.shown
 			&& (fullWidth > 0);
@@ -1804,17 +1811,95 @@ void InnerWidget::fillRightButton(
 			return &(it->second);
 		}
 	}
-	if (row && row == _selected && !_narrowRatio && MaybeUnreadHistory(row)) {
-		if (!_hoverReadButton) {
-			_hoverReadButton = std::make_unique<RightButton>();
-			fillRightButton(
-				*_hoverReadButton,
-				tr::lng_context_mark_read(tr::now, tr::marked),
-				st::dialogRowOpenBot);
-		}
-		return _hoverReadButton.get();
-	}
 	return nullptr;
+}
+
+const Ui::HoverActions *InnerWidget::prepareHoverActions(Row *row) {
+	if (_hoverActions) {
+		_hoverActions->count = 0;
+		_hoverActions->over = -1;
+	}
+	if (!row
+		|| _narrowRatio
+		|| _state != WidgetState::Default
+		|| width() < st::columnMinimalWidthLeft
+		|| MaybeBotWithApp(row)) {
+		return nullptr;
+	}
+	const auto history = row->key().history();
+	if (!history) {
+		return nullptr;
+	}
+	if (!_hoverActions) {
+		_hoverActions = std::make_unique<Ui::HoverActions>();
+	}
+	const auto actions = _hoverActions.get();
+	actions->count = 0;
+	actions->over = -1;
+	const auto add = [&](Ui::QuickDialogAction action) {
+		using Label = Ui::QuickDialogActionLabel;
+		const auto icon = [&]() -> const style::icon* {
+			switch (ResolveQuickDialogLabel(history, action, _filterId)) {
+			case Label::Read: return &st::menuIconMarkRead;
+			case Label::Pin: return &st::menuIconPin;
+			case Label::Unpin: return &st::menuIconUnpin;
+			case Label::Mute: return &st::menuIconMute;
+			case Label::Unmute: return &st::menuIconUnmute;
+			default: return nullptr;
+			}
+		}();
+		if (icon) {
+			_hoverActionKinds[actions->count] = action;
+			actions->icons[actions->count] = icon;
+			++actions->count;
+		}
+	};
+	if (Window::IsUnreadThread(history)) {
+		add(Ui::QuickDialogAction::Read);
+	}
+	if (!history->fixedOnTopIndex()) {
+		add(Ui::QuickDialogAction::Pin);
+	}
+	add(Ui::QuickDialogAction::Mute);
+	return actions->count ? actions : nullptr;
+}
+
+int InnerWidget::hoverActionAt(Row *row, QPoint localPosition) {
+	const auto actions = prepareHoverActions(row);
+	if (!actions) {
+		return -1;
+	}
+	const auto history = row->key().history();
+	const auto &st = (history->peer->displayAsForum()
+		|| history->amMonoforumAdmin())
+		? st::forumDialogRow
+		: *_st;
+	for (auto i = 0; i != actions->count; ++i) {
+		const auto rect = Ui::HoverActionRect(
+			width(),
+			st,
+			actions->count,
+			i);
+		if (rect.contains(localPosition)) {
+			return i;
+		}
+	}
+	return -1;
+}
+
+std::optional<Ui::QuickDialogAction> InnerWidget::hoverActionAtGlobal(
+		Row *row,
+		QPoint globalPosition) {
+	if (!row || _state != WidgetState::Default) {
+		return std::nullopt;
+	}
+	const auto local = mapFromGlobal(globalPosition);
+	const auto index = hoverActionAt(
+		row,
+		QPoint(local.x(), local.y() - dialogsOffset() - row->top()));
+	return (index >= 0)
+		? std::make_optional(_hoverActionKinds[index])
+		: std::nullopt;
 }
 
 Ui::VideoUserpic *InnerWidget::validateVideoUserpic(not_null<Row*> row) {
@@ -2249,8 +2334,6 @@ bool InnerWidget::lookupIsInBotAppButton(
 		if (it != _rightButtons.end()) {
 			return lookupIsInRightButton(it->second, localPosition);
 		}
-	} else if (MaybeUnreadHistory(row) && _hoverReadButton) {
-		return lookupIsInRightButton(*_hoverReadButton, localPosition);
 	}
 	return false;
 }
@@ -2322,6 +2405,9 @@ void InnerWidget::selectByMouse(QPoint globalPosition) {
 			&& selected->lookupIsInTopicJump(local.x(), mappedY);
 		const auto selectedRightButton = selected
 			&& lookupIsInBotAppButton(selected, QPoint(local.x(), mappedY));
+		const auto hoverActionSelected = selected
+			? hoverActionAt(selected, QPoint(local.x(), mappedY))
+			: -1;
 		auto communitySelected = -1;
 		if (communityModeShown() && !selected && collapsedSelected < 0) {
 			const auto pick = [&](
@@ -2344,7 +2430,8 @@ void InnerWidget::selectByMouse(QPoint globalPosition) {
 			|| _selected != selected
 			|| _communitySelected != communitySelected
 			|| _selectedTopicJump != selectedTopicJump
-			|| _selectedRightButton != selectedRightButton) {
+			|| _selectedRightButton != selectedRightButton
+			|| _hoverActionSelected != hoverActionSelected) {
 			updateSelectedRow();
 			if (_selected != selected) {
 				_hoverFadeRow = selected;
@@ -2361,6 +2448,7 @@ void InnerWidget::selectByMouse(QPoint globalPosition) {
 			_communitySelected = communitySelected;
 			_selectedTopicJump = selectedTopicJump;
 			_selectedRightButton = selectedRightButton;
+			_hoverActionSelected = hoverActionSelected;
 			_collapsedSelected = collapsedSelected;
 			updateSelectedRow();
 			setCursor((_selected
@@ -2540,6 +2628,9 @@ void InnerWidget::mousePressEvent(QMouseEvent *e) {
 	selectByMouse(e->globalPos());
 
 	_pressButton = e->button();
+	_hoverActionPressed = (_pressButton == Qt::LeftButton)
+		? hoverActionAtGlobal(_selected, e->globalPos())
+		: std::nullopt;
 	setPressed(_selected, _selectedTopicJump, _selectedRightButton);
 	setCollapsedPressed(_collapsedSelected);
 	setHashtagPressed(_hashtagSelected);
@@ -2582,7 +2673,8 @@ void InnerWidget::mousePressEvent(QMouseEvent *e) {
 		};
 		const auto origin = e->pos()
 			- QPoint(0, dialogsOffset() + _pressed->top());
-		if ((_pressButton == Qt::MiddleButton)
+		if (_hoverActionPressed) {
+		} else if ((_pressButton == Qt::MiddleButton)
 			&& addQuickActionRipple(row, updateCallback)) {
 		} else if (addRightButtonRipple(origin, updateCallback)) {
 		} else if (_pressedTopicJump) {
@@ -3072,6 +3164,7 @@ void InnerWidget::mousePressReleased(
 		_controller->cancelScheduledPreview();
 	}
 	const auto pressButton = base::take(_pressButton);
+	const auto hoverActionPressed = base::take(_hoverActionPressed);
 
 	const auto wasDragging = finishReorderOnRelease();
 
@@ -3133,7 +3226,22 @@ void InnerWidget::mousePressReleased(
 		}
 	}
 	updateSelectedRow();
-	if (!wasDragging && button == Qt::LeftButton) {
+	if (hoverActionPressed
+		&& !wasDragging
+		&& button == Qt::LeftButton
+		&& pressed
+		&& pressed == _selected) {
+		const auto history = pressed->key().history();
+		if (history
+			&& hoverActionAtGlobal(pressed, globalPosition)
+				== hoverActionPressed) {
+			PerformQuickDialogAction(
+				_controller,
+				history->peer,
+				*hoverActionPressed,
+				_filterId);
+		}
+	} else if (!wasDragging && button == Qt::LeftButton) {
 		if ((collapsedPressed >= 0 && collapsedPressed == _collapsedSelected)
 			|| (pressed
 				&& pressed == _selected
@@ -3166,8 +3274,6 @@ void InnerWidget::mousePressReleased(
 					: _filterResults[filteredPressed].row.get();
 				if (const auto user = MaybeBotWithApp(row)) {
 					_openBotMainAppRequests.fire(peerToUser(user->id));
-				} else if (const auto history = MaybeUnreadHistory(row)) {
-					Window::MarkAsReadThread(history);
 				}
 			} else if (pressedRightButton && peerSearchPressed >= 0) {
 				showSponsoredMenu(peerSearchPressed, globalPosition);
@@ -3220,8 +3326,6 @@ void InnerWidget::setPressed(
 					if (it != _rightButtons.end()) {
 						_pressedRightButtonData = &(it->second);
 					}
-				} else if (MaybeUnreadHistory(pressed) && _hoverReadButton) {
-					_pressedRightButtonData = _hoverReadButton.get();
 				}
 			}
 			const auto history = pressedTopicJump

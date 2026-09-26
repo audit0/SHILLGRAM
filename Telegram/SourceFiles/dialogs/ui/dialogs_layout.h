@@ -54,8 +54,22 @@ struct TopicJumpCache {
 	TopicJumpCorners rippleMask;
 };
 
+// ShillGramm: icon buttons (read / pin / mute) over the hovered chat row.
+struct HoverActions {
+	std::array<const style::icon*, 3> icons = {};
+	int count = 0;
+	int over = -1;
+};
+
+[[nodiscard]] QRect HoverActionRect(
+	int width,
+	const style::DialogRow &st,
+	int count,
+	int index);
+
 struct PaintContext {
 	RightButton *rightButton = nullptr;
+	const HoverActions *hoverActions = nullptr;
 	std::vector<QImage*> *chatsFilterTags = nullptr;
 	QuickActionContext *quickActionContext = nullptr;
 	not_null<const style::DialogRow*> st;

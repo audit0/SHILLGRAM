@@ -111,9 +111,49 @@ void PaintRowTopRight(
 		text);
 }
 
+int PaintHoverActions(QPainter &p, const PaintContext &context) {
+	const auto actions = context.hoverActions;
+	auto hq = PainterHighQualityEnabler(p);
+	for (auto i = 0; i != actions->count; ++i) {
+		const auto rect = HoverActionRect(
+			context.width,
+			*context.st,
+			actions->count,
+			i);
+		const auto over = (i == actions->over);
+		if (over) {
+			p.setPen(Qt::NoPen);
+			p.setBrush(context.active
+				? st::dialogsRippleBgActive
+				: st::dialogsHoverActionBgOver);
+			p.drawEllipse(rect);
+		}
+		actions->icons[i]->paintInCenter(
+			p,
+			rect,
+			(context.active
+				? st::dialogsTextFgActive
+				: over
+				? st::dialogsNameFg
+				: st::dialogsTextFgOver)->c);
+	}
+	const auto first = HoverActionRect(
+		context.width,
+		*context.st,
+		actions->count,
+		0);
+	return context.width
+		- context.st->padding.right()
+		- first.x()
+		+ st::dialogsUnreadPadding;
+}
+
 int PaintRightButtonImpl(QPainter &p, const PaintContext &context) {
 	if (context.width < st::columnMinimalWidthLeft) {
 		return 0;
+	}
+	if (context.hoverActions && context.hoverActions->count) {
+		return PaintHoverActions(p, context);
 	}
 	if (const auto rightButton = context.rightButton) {
 		Assert(rightButton->st != nullptr);
@@ -197,6 +237,9 @@ int PaintBadges(
 		icon.paint(p, right - icon.width(), top, context.width);
 		right -= icon.width() + st::dialogsUnreadPadding;
 	};
+	if (!narrow && context.hoverActions && context.hoverActions->count) {
+		return PaintRightButton(p, context) - st::dialogsUnreadPadding;
+	}
 	auto initial = right;
 	auto painted = 0;
 	if (badgesState.unread
@@ -1483,6 +1526,20 @@ void PaintCollapsedRow(
 			unreadTop,
 			st);
 	}
+}
+
+QRect HoverActionRect(
+		int width,
+		const style::DialogRow &st,
+		int count,
+		int index) {
+	const auto size = st::dialogsHoverActionSize;
+	const auto skip = st::dialogsHoverActionSkip;
+	const auto right = width - st::dialogsHoverActionRight;
+	const auto left = right - count * size - (count - 1) * skip;
+	const auto top = st.textTop
+		+ (st::dialogsTextFont->height - size) / 2;
+	return QRect(left + index * (size + skip), top, size, size);
 }
 
 int PaintRightButton(QPainter &p, const PaintContext &context) {

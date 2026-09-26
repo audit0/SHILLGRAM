@@ -75,6 +75,8 @@ class VideoUserpic;
 class MessageView;
 struct PaintContext;
 struct TopicJumpCache;
+struct HoverActions;
+enum class QuickDialogAction;
 } // namespace Dialogs::Ui
 
 namespace Dialogs {
@@ -627,6 +629,11 @@ private:
 		const RightButton &button,
 		QPoint localPosition);
 	[[nodiscard]] RightButton *maybeCacheRightButton(Row *row);
+	[[nodiscard]] const Ui::HoverActions *prepareHoverActions(Row *row);
+	[[nodiscard]] int hoverActionAt(Row *row, QPoint localPosition);
+	[[nodiscard]] std::optional<Ui::QuickDialogAction> hoverActionAtGlobal(
+		Row *row,
+		QPoint globalPosition);
 	void fillRightButton(
 		RightButton &button,
 		const TextWithEntities &text,
@@ -670,7 +677,11 @@ private:
 	bool _skipTopDialog = false;
 	Row *_selected = nullptr;
 	Row *_hoverFadeRow = nullptr;
-	std::unique_ptr<RightButton> _hoverReadButton; // ShillGramm: "Mark as read" on hover
+	// ShillGramm: read / pin / mute buttons over the hovered row.
+	std::unique_ptr<Ui::HoverActions> _hoverActions;
+	std::array<Ui::QuickDialogAction, 3> _hoverActionKinds = {};
+	std::optional<Ui::QuickDialogAction> _hoverActionPressed;
+	int _hoverActionSelected = -1;
 	Ui::Animations::Simple _hoverFadeAnimation;
 	Row *_pressed = nullptr;
 	MsgId _pressedTopicJumpRootId;
