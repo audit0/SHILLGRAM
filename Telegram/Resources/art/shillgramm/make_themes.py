@@ -67,14 +67,14 @@ KEEP_COLOUR = ('callAnswer', 'callHangup', 'callArrowMissed')
 # rendered: cool neutrals, orange "hot" counters, green only for links/focus.
 # Apple system neutrals with the agents panel's restraint: graphite for
 # emphasis, one quiet green for links, no loud colours.
-DAY = dict(bg='#ececf0', panel='#fbfbfd', side='#f5f5f7', soft='#f2f2f4',
-           pill='#e8e8ed', line='#e5e5ea', lineSoft='#ededf0', ink='#1d1d1f',
-           inkOver='#000000', muted='#6e6e73', faint='#86868b', accent='#1d6b48',
-           accentSoft='#e4efe9', sel='#e8e8ed', selLine='#d8d8de', hot='#3a3a3c',
-           note='#f7f2e8', noteLine='#e9dcc4', ok='#248a3d', warn='#b25000', bad='#d70015',
-           outBg='#2c2c2e', outSel='#3a3a3c', outFg='#ffffff', outSub='#aeaeb2',
-           outLink='#8fd3ad', inBg='#ffffff', inSel='#e8e8ed',
-           userpics=['#aeb3bd', '#9ea4b0', '#8e95a3', '#b4b9c2'])
+DAY = dict(bg='#dcdce2', panel='#e9e9ed', side='#e2e2e6', soft='#dfdfe4',
+           pill='#d2d2d9', line='#cfcfd6', lineSoft='#dadae0', ink='#1d1d1f',
+           inkOver='#000000', muted='#636368', faint='#7c7c82', accent='#1d6b48',
+           accentSoft='#dde9e2', sel='#d5d5dc', selLine='#c5c5cd', hot='#3a3a3c',
+           note='#efe8dc', noteLine='#dfd0b6', ok='#248a3d', warn='#b25000', bad='#d70015',
+           outBg='#2c2c2e', outSel='#3a3a3c', outFg='#f5f5f7', outSub='#aeaeb2',
+           outLink='#8fd3ad', inBg='#f0f0f3', inSel='#e0e0e5',
+           userpics=['#a3a8b2', '#959ba7', '#878e9b', '#aab0b9'])
 NIGHT = dict(bg='#121214', panel='#1c1c1e', side='#161618', soft='#2c2c2e',
              pill='#3a3a3c', line='#38383a', lineSoft='#2c2c2e', ink='#f5f5f7',
              inkOver='#ffffff', muted='#98989d', faint='#8e8e93', accent='#5fc38e',
@@ -230,17 +230,17 @@ nite.update(common(NIGHT, True))
 
 # Readability: bot buttons and service pills get graphite text on a
 # clearly visible plate instead of gray on pale gray.
-day.update({'msgServiceBg': '#ffffff', 'msgServiceFg': '#1d1d1f',
-            'msgServiceBgSelected': '#e8e8ed', 'msgBotKbOverBgAdd': '#0000000a',
-            'msgBotKbRippleBg': '#00000014', 'botKbBg': '#f2f2f5',
-            'botKbDownBg': '#e5e5ea', 'botKbColor': '#1d1d1f'})
+day.update({'msgServiceBg': '#f0f0f3', 'msgServiceFg': '#1d1d1f',
+            'msgServiceBgSelected': '#e3e3e8', 'msgBotKbOverBgAdd': '#0000000a',
+            'msgBotKbRippleBg': '#00000014', 'botKbBg': '#dedee4',
+            'botKbDownBg': '#d2d2d9', 'botKbColor': '#1d1d1f'})
 nite.update({'msgServiceBg': '#2c2c2e', 'msgServiceFg': '#f5f5f7',
              'msgServiceBgSelected': '#3a3a3c', 'botKbBg': '#2c2c2e',
              'botKbDownBg': '#3a3a3c', 'botKbColor': '#f5f5f7'})
 
 # Glass: the window behind these areas is the macOS vibrancy layer.
 GLASS_KEYS = ('dialogsBg', 'sideBarBg', 'titleBg', 'titleBgActive', 'topBarBg')
-for theme, alpha in ((day, 'b3'), (nite, '99')):
+for theme, alpha in ((day, 'c7'), (nite, '99')):
     for k in GLASS_KEYS:
         v = theme[k]
         if v.startswith('#') and len(v) == 7:
