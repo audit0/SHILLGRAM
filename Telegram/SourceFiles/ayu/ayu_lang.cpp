@@ -196,6 +196,19 @@ void AyuLanguage::applyLanguageJson(QJsonDocument doc) {
 			key = key.replace("_PC", "");
 		}
 
+		// ShillGramm fork: downloaded AyuGram translations name the app
+		// "AyuGram"; show our name, except where the text is about the
+		// AyuGram project itself or its authorship notice.
+		if (key != qsl("ayu_ExteraChatsAlert")
+			&& key != qsl("ayu_SupporterPopup")
+			&& key != qsl("ayu_OfficialResourcePopup")
+			&& key != qsl("ayu_IconAlternative")) {
+			if (key == qsl("ayu_SettingsWatermark")) {
+				continue;
+			}
+			val = val.replace(qsl("AyuGram"), qsl("ShillGramm"));
+		}
+
 		if (val.contains(qsl("%1$d")) && !val.contains(qsl("%2$d"))) {
 			val = val.replace(qsl("%1$d"), qsl("{count}"));
 		} else if (val.contains(qsl("%1$d")) && val.contains(qsl("%2$d"))) {

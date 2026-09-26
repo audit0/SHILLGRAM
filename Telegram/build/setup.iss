@@ -1,9 +1,9 @@
-#define MyAppShortName "AyuGram"
-#define MyAppName "AyuGram Desktop"
+#define MyAppShortName "ShillGramm"
+#define MyAppName "ShillGramm Desktop"
 #define MyAppPublisher "Radolyn Labs"
-#define MyAppURL "https://github.com/AyuGram"
-#define MyAppExeName "AyuGram.exe"
-#define MyAppId "53F49750-6209-4FBF-9CA8-7A333C87D666"
+#define MyAppURL "https://github.com/audit0/client-desktop"
+#define MyAppExeName "ShillGramm.exe"
+#define MyAppId "E7DCE906-D6A7-4256-9302-B8A569298D85"
 #define CurrentYear GetDateTimeString('yyyy','','')
 
 [Setup]

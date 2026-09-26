@@ -19,8 +19,8 @@
 <stop offset="1" stop-color="#FFFFFF" stop-opacity="0.45"/>
 </linearGradient>
 </defs>
-<rect id="plate" width="1200" height="1200" rx="600" fill="url(#bg)"/>
-<rect width="1200" height="1200" rx="600" fill="url(#glow)"/>
+<rect id="plate" width="1200" height="1200" rx="270" fill="url(#bg)"/>
+<rect width="1200" height="1200" rx="270" fill="url(#glow)"/>
 <path d="M600 238C826 238 990 392 990 598C990 804 826 958 600 958C541 958 486 948 436 928L288 992C266 1001 244 980 253 958L304 846C254 777 210 690 210 598C210 392 374 238 600 238Z" fill="url(#glass)" stroke="url(#rim)" stroke-width="10"/>
 <path d="M742 452C710 400 654 376 594 376C516 376 458 420 458 484C458 548 512 574 600 594C688 614 748 642 748 712C748 780 688 820 604 820C540 820 484 796 452 744" stroke="#FFFFFF" stroke-width="104" stroke-linecap="round" stroke-linejoin="round"/>
 <path d="M862 250C872 304 896 328 950 338C896 348 872 372 862 426C852 372 828 348 774 338C828 328 852 304 862 250Z" fill="#FFFFFF"/>
