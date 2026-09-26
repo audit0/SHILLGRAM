@@ -65,18 +65,24 @@ KEEP_COLOUR = ('callAnswer', 'callHangup', 'callArrowMissed')
 
 # Palette of the agents panel (Панель управления агентами Claude) as it is
 # rendered: cool neutrals, orange "hot" counters, green only for links/focus.
-DAY = dict(bg='#f0f0f2', panel='#fafafb', side='#f1f1f3', soft='#eaeaed',
-           pill='#e0e0e5', line='#e2e2e6', lineSoft='#ececef', ink='#18191b',
-           inkOver='#000000', muted='#5e6268', faint='#8a8e95', accent='#1d6b48',
-           accentSoft='#e4efe9', sel='#e6ebf6', selLine='#c9d5f2', hot='#b25a0c',
-           note='#f8efe2', noteLine='#ecd6b8', ok='#1d7a50', warn='#b25a0c', bad='#c0362c')
-# Night: the graphite-navy of the agents panel icon (#1b2130 -> #2a3346)
-# with its status dots: amber counters, green accent.
-NIGHT = dict(bg='#171c28', panel='#1b2130', side='#181d2a', soft='#242b3b',
-             pill='#2a3346', line='#2a3244', lineSoft='#222938', ink='#e6e9ef',
-             inkOver='#ffffff', muted='#a0a9b8', faint='#7a8496', accent='#22c55e',
-             accentSoft='#1d3329', sel='#26314a', selLine='#34425f', hot='#f5a524',
-             note='#2b2a22', noteLine='#4a4128', ok='#22c55e', warn='#f5a524', bad='#ef6a5e')
+# Apple system neutrals with the agents panel's restraint: graphite for
+# emphasis, one quiet green for links, no loud colours.
+DAY = dict(bg='#f5f5f7', panel='#ffffff', side='#f5f5f7', soft='#f2f2f4',
+           pill='#e8e8ed', line='#e5e5ea', lineSoft='#ededf0', ink='#1d1d1f',
+           inkOver='#000000', muted='#6e6e73', faint='#86868b', accent='#1d6b48',
+           accentSoft='#e4efe9', sel='#e8e8ed', selLine='#d8d8de', hot='#3a3a3c',
+           note='#f7f2e8', noteLine='#e9dcc4', ok='#248a3d', warn='#b25000', bad='#d70015',
+           outBg='#2c2c2e', outSel='#3a3a3c', outFg='#ffffff', outSub='#aeaeb2',
+           outLink='#8fd3ad', inBg='#ffffff', inSel='#e8e8ed',
+           userpics=['#aeb3bd', '#9ea4b0', '#8e95a3', '#b4b9c2'])
+NIGHT = dict(bg='#000000', panel='#1c1c1e', side='#161618', soft='#2c2c2e',
+             pill='#3a3a3c', line='#38383a', lineSoft='#2c2c2e', ink='#f5f5f7',
+             inkOver='#ffffff', muted='#98989d', faint='#8e8e93', accent='#5fc38e',
+             accentSoft='#1d3329', sel='#2c2c2e', selLine='#3a3a3c', hot='#e5e5ea',
+             note='#2a261e', noteLine='#4a4128', ok='#30d158', warn='#ff9f0a', bad='#ff453a',
+             outBg='#e5e5ea', outSel='#d1d1d6', outFg='#1d1d1f', outSub='#6e6e73',
+             outLink='#1d6b48', inBg='#1c1c1e', inSel='#2c2c2e',
+             userpics=['#5a5f69', '#4e535d', '#63686f', '#44484f'])
 
 
 def warm(l, a='', dark=False):
@@ -98,7 +104,7 @@ def mono(key, value, dark):
     if 'Userpic' in key:
         m = re.search(r'Peer(\d)', key)
         n = int(m.group(1)) if m else 0
-        return warm((0.30 if dark else 0.24) + 0.06 * (n % 4), a, dark)
+        return P['userpics'][n % 4] + a
     if decorative:  # member name colours
         return warm((0.78 if dark else 0.28) + 0.04 * (sum(map(ord, key)) % 3), a, dark)
     if s > 0.25:  # an accent colour
@@ -142,14 +148,14 @@ swap_out(nite, day_src, True)
 
 def common(P, dark):
     btn = P['ink']
-    btnFg = P['panel'] if dark else '#ffffff'
-    badgeFg = P['panel'] if dark else '#ffffff'
+    btnFg = '#1d1d1f' if dark else '#ffffff'
+    badgeFg = '#1d1d1f' if dark else '#ffffff'
     return {
         'windowBg': P['panel'], 'windowFg': P['ink'], 'windowBgOver': P['side'],
         'windowBgRipple': P['pill'], 'windowSubTextFg': P['muted'],
         'windowSubTextFgOver': P['faint'], 'windowBoldFg': P['ink'],
         'windowBgActive': btn, 'windowFgActive': btnFg,
-        'windowActiveTextFg': P['accent'], 'windowShadowFgFallback': P['line'],
+        'windowActiveTextFg': P['ink'], 'windowShadowFgFallback': P['line'],
         'activeButtonBg': btn, 'activeButtonBgOver': P['inkOver'],
         'activeButtonBgRipple': P['muted'], 'activeButtonFg': btnFg,
         'activeButtonFgOver': btnFg, 'activeLineFg': P['ink'],
@@ -161,7 +167,7 @@ def common(P, dark):
         'filterInputActiveBg': P['panel'],
         'inputBorderFg': P['line'], 'scrollBarBg': P['faint'] + '66',
         'dialogsBg': P['panel'], 'dialogsBgOver': P['side'],
-        'dialogsBgActive': P['sel'], 'dialogsRippleBgActive': P['selLine'],
+        'dialogsBgActive': P['sel'], 'dialogsRippleBgActive': P['selLine'], 'dialogsBgOver': P['soft'],
         'dialogsNameFg': P['ink'], 'dialogsNameFgActive': P['ink'],
         'dialogsNameFgOver': P['ink'],
         'dialogsTextFg': P['muted'], 'dialogsTextFgActive': P['muted'],
@@ -195,15 +201,17 @@ def common(P, dark):
         'historyComposeButtonBgOver': P['soft'], 'historyReplyBg': P['panel'],
         'historyReplyIconFg': P['accent'], 'topBarBg': P['panel'],
         'placeholderFg': P['faint'], 'placeholderFgActive': P['faint'],
-        'msgInBg': P['soft'], 'msgInBgSelected': P['pill'],
+        'msgInBg': P['inBg'], 'msgInBgSelected': P['inSel'],
         'msgInShadow': '#00000000', 'msgInShadowSelected': '#00000000',
         'historyTextInFg': P['ink'], 'historyLinkInFg': P['accent'],
         'msgInDateFg': P['faint'], 'msgInServiceFg': P['accent'],
-        'msgOutBg': P['sel'], 'msgOutBgSelected': P['selLine'],
+        'msgOutBg': P['outBg'], 'msgOutBgSelected': P['outSel'],
         'msgOutShadow': '#00000000', 'msgOutShadowSelected': '#00000000',
-        'historyTextOutFg': P['ink'], 'historyLinkOutFg': P['accent'],
-        'msgOutDateFg': P['faint'], 'msgOutServiceFg': P['accent'],
-        'historyOutIconFg': P['accent'], 'historyOutIconFgSelected': P['accent'],
+        'historyTextOutFg': P['outFg'], 'historyLinkOutFg': P['outLink'],
+        'msgOutDateFg': P['outSub'], 'msgOutServiceFg': P['outLink'],
+        'historyOutIconFg': P['outSub'], 'historyOutIconFgSelected': P['outSub'],
+        'msgOutDateFgSelected': P['outSub'], 'msgOutServiceFgSelected': P['outLink'],
+        'historyFileOutIconFg': P['outBg'], 'msgFileOutBg': P['outFg'],
         'msgServiceBg': P['soft'], 'msgServiceFg': P['muted'],
         'historyUnreadBarBg': P['note'], 'historyUnreadBarBorder': P['noteLine'],
         'historyUnreadBarFg': P['hot'],
