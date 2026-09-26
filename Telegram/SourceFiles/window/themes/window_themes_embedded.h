@@ -19,7 +19,12 @@ enum class EmbeddedType {
 	Default,
 	Night,
 	NightGreen,
+	// ShillGramm monochrome themes; appended so stored values stay valid.
+	ShillDay,
+	ShillNight,
 };
+
+[[nodiscard]] QString ShillDayThemePath();
 
 struct EmbeddedScheme {
 	EmbeddedType type = EmbeddedType();

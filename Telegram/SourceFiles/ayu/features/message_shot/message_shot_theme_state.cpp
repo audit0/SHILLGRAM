@@ -292,6 +292,10 @@ QString embeddedThemeDisplayName(Window::Theme::EmbeddedType type) {
 		return tr::lng_settings_theme_tinted(tr::now);
 	case Window::Theme::EmbeddedType::NightGreen:
 		return tr::lng_settings_theme_night(tr::now);
+	case Window::Theme::EmbeddedType::ShillDay:
+		return u"ShillGramm"_q;
+	case Window::Theme::EmbeddedType::ShillNight:
+		return u"ShillGramm Night"_q;
 	}
 	return tr::ayu_MessageShotThemeDefault(tr::now);
 }

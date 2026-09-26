@@ -520,7 +520,7 @@ void AyuSettings::validate() {
 	validateRange(_avatarCorners, 0, AyuUiSettings::kMaxAvatarCorners, defaults._avatarCorners);
 
 	const auto embeddedType = _messageShotSettings._embeddedThemeType.current();
-	auto embeddedTypeValid = (embeddedType == -1) || (embeddedType >= 0 && embeddedType <= 3); // from Window::Theme::EmbeddedType::DayBlue to Window::Theme::EmbeddedType::NightGreen
+	auto embeddedTypeValid = (embeddedType == -1) || (embeddedType >= 0 && embeddedType <= 5); // from Window::Theme::EmbeddedType::DayBlue to Window::Theme::EmbeddedType::ShillNight
 	if (!embeddedTypeValid) {
 		_messageShotSettings._embeddedThemeType = defaults._messageShotSettings._embeddedThemeType.current();
 		_messageShotSettings._embeddedThemeAccentColor = defaults._messageShotSettings._embeddedThemeAccentColor.current();

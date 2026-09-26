@@ -242,6 +242,28 @@ std::vector<EmbeddedScheme> EmbeddedThemes() {
 	};
 	return {
 		EmbeddedScheme{
+			EmbeddedType::ShillDay,
+			qColor("ffffff"),
+			qColor("1d1d1f"),
+			qColor("f0f0f2"),
+			qColor("f0f0f2"),
+			qColor("1d1d1f"),
+			rpl::single(u"ShillGramm"_q),
+			ShillDayThemePath(),
+			qColor("1d1d1f")
+		},
+		EmbeddedScheme{
+			EmbeddedType::ShillNight,
+			qColor("000000"),
+			qColor("e8e8ed"),
+			qColor("1f1f22"),
+			qColor("1f1f22"),
+			qColor("e8e8ed"),
+			rpl::single(u"ShillGramm Night"_q),
+			":/gui/shillgramm-night.tdesktop-theme",
+			qColor("e8e8ed")
+		},
+		EmbeddedScheme{
 			EmbeddedType::Default,
 			qColor("9bd494"),
 			qColor("eaffdc"),
@@ -288,11 +310,18 @@ std::vector<EmbeddedScheme> EmbeddedThemes() {
 	};
 }
 
+QString ShillDayThemePath() {
+	return u":/gui/shillgramm-day.tdesktop-theme"_q;
+}
+
 std::vector<QColor> DefaultAccentColors(EmbeddedType type) {
 	const auto qColor = [](auto hex) {
 		return style::ColorFromHex(hex);
 	};
 	switch (type) {
+	case EmbeddedType::ShillDay:
+	case EmbeddedType::ShillNight:
+		return {}; // Monochrome: no accent picker.
 	case EmbeddedType::DayBlue:
 		return {
 			qColor("45bce7"),

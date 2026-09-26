@@ -53,7 +53,7 @@ namespace {
 
 constexpr auto kThemeFileSizeLimit = 5 * 1024 * 1024;
 constexpr auto kBackgroundSizeLimit = 25 * 1024 * 1024;
-constexpr auto kNightThemeFile = ":/gui/night.tdesktop-theme"_cs;
+constexpr auto kNightThemeFile = ":/gui/shillgramm-night.tdesktop-theme"_cs;
 constexpr auto kDarkValueThreshold = 0.5;
 
 struct Applying {
@@ -601,6 +601,31 @@ void ChatBackground::start() {
 		ApplyDefaultWithPath(path);
 		KeepApplied();
 	}, _lifetime);
+
+	// ShillGramm: until the user picks a theme, start with our monochrome
+	// day theme instead of the classic one (the night default is ours via
+	// kNightThemeFile). A marker keeps this to the very first start.
+	// Night users on the previous built-in night theme move to ours too.
+	const auto marker = cWorkingDir() + u"tdata/shillgramm_theme_v2"_q;
+	if (!QFile::exists(marker)) {
+		const auto path = _themeObject.pathAbsolute;
+		const auto night = nightMode();
+		if (!night && path.isEmpty()) {
+			crl::on_main([] {
+				ApplyDefaultWithPath(ShillDayThemePath());
+				KeepApplied();
+			});
+		} else if (night && path == u":/gui/night.tdesktop-theme"_q) {
+			crl::on_main([] {
+				ApplyDefaultWithPath(NightThemePath());
+				KeepApplied();
+			});
+		}
+		auto file = QFile(marker);
+		if (file.open(QIODevice::WriteOnly)) {
+			file.close();
+		}
+	}
 }
 
 void ChatBackground::refreshThemeWatcher() {
