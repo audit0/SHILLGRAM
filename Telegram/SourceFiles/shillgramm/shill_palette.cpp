@@ -23,7 +23,11 @@ ShillGramm: Cmd+K command palette - chats, actions and settings in one place.
 #include "history/history.h"
 #include "lang/lang_keys.h"
 #include "main/main_session.h"
-#include "ui/layers/box_content.h"
+#include "ui/effects/animations.h"
+#include "ui/image/image_prepare.h"
+#include "ui/ui_utility.h"
+#include "ui/widgets/elastic_scroll.h"
+#include "mainwindow.h"
 #include "ui/widgets/multi_select.h"
 #include "ui/painter.h"
 #include "ui/rp_widget.h"
@@ -62,17 +66,22 @@ struct Item {
 	return query.isEmpty() || text.toLower().contains(query);
 }
 
-class PaletteBox final : public Ui::BoxContent {
+class PaletteContent final : public Ui::RpWidget {
 public:
-	PaletteBox(QWidget*, not_null<Window::SessionController*> controller);
+	PaletteContent(
+		QWidget *parent,
+		not_null<Window::SessionController*> controller,
+		Fn<void()> close);
+
+	void setInnerFocus();
 
 protected:
-	void prepare() override;
-	void setInnerFocus() override;
 	void keyPressEvent(QKeyEvent *e) override;
 	void resizeEvent(QResizeEvent *e) override;
+	void paintEvent(QPaintEvent *e) override;
 
 private:
+	void init();
 	void rebuild(const QString &query);
 	void addActions(const QString &query);
 	void addChats(const QString &query);
@@ -88,6 +97,7 @@ private:
 	[[nodiscard]] static int RowHeight();
 
 	const not_null<Window::SessionController*> _controller;
+	const Fn<void()> _close;
 	object_ptr<Ui::MultiSelect> _select;
 	object_ptr<Ui::RpWidget> _list;
 	std::vector<Item> _items;
@@ -95,30 +105,28 @@ private:
 
 };
 
-QPointer<PaletteBox> Opened;
-
-int PaletteBox::RowHeight() {
+int PaletteContent::RowHeight() {
 	return style::ConvertScale(44);
 }
 
-PaletteBox::PaletteBox(
-	QWidget*,
-	not_null<Window::SessionController*> controller)
-: _controller(controller)
+PaletteContent::PaletteContent(
+	QWidget *parent,
+	not_null<Window::SessionController*> controller,
+	Fn<void()> close)
+: RpWidget(parent)
+, _controller(controller)
+, _close(std::move(close))
 , _select(
 	this,
-	st::defaultMultiSelect,
+	st::shillSpotlightSelect,
 	rpl::single(Tr(
 		"Chats, actions, settings...",
 		"Чаты, действия, настройки...")))
 , _list(this) {
+	init();
 }
 
-void PaletteBox::prepare() {
-	setStyle(st::shillPaletteBox);
-	setNoContentMargin(true);
-	setDimensions(st::boxWideWidth, st::boxWideWidth / 2);
-
+void PaletteContent::init() {
 	_select->setQueryChangedCallback([=](const QString &query) {
 		rebuild(query);
 	});
@@ -126,7 +134,7 @@ void PaletteBox::prepare() {
 		activate(_selected);
 	});
 	_select->setCancelledCallback([=] {
-		closeBox();
+		_close();
 	});
 	_select->setResizedCallback([=] {
 		updateHeight();
@@ -163,11 +171,11 @@ void PaletteBox::prepare() {
 	rebuild(QString());
 }
 
-void PaletteBox::setInnerFocus() {
+void PaletteContent::setInnerFocus() {
 	_select->setInnerFocus();
 }
 
-void PaletteBox::keyPressEvent(QKeyEvent *e) {
+void PaletteContent::keyPressEvent(QKeyEvent *e) {
 	const auto count = int(_items.size());
 	if (e->key() == Qt::Key_Down && count) {
 		select((_selected + 1) % count);
@@ -176,35 +184,53 @@ void PaletteBox::keyPressEvent(QKeyEvent *e) {
 	} else if (e->key() == Qt::Key_Escape
 		&& !_select->getQuery().isEmpty()) {
 		_select->clearQuery();
+	} else if (e->key() == Qt::Key_Escape) {
+		_close();
 	} else {
-		BoxContent::keyPressEvent(e);
+		RpWidget::keyPressEvent(e);
 	}
 }
 
-void PaletteBox::resizeEvent(QResizeEvent *e) {
-	BoxContent::resizeEvent(e);
+void PaletteContent::resizeEvent(QResizeEvent *e) {
 	layout();
 }
 
-void PaletteBox::layout() {
-	_select->resizeToWidth(width());
-	_select->moveToLeft(0, 0);
+void PaletteContent::paintEvent(QPaintEvent *e) {
+	auto p = QPainter(this);
+	auto hq = PainterHighQualityEnabler(p);
+	const auto radius = st::shillSpotlightRadius;
+	p.setPen(QPen(st::shadowFg, 1.));
+	p.setBrush(st::boxBg);
+	p.drawRoundedRect(
+		QRectF(rect()).marginsRemoved({ 0.5, 0.5, 0.5, 0.5 }),
+		radius,
+		radius);
+}
+
+void PaletteContent::layout() {
+	const auto margin = st::shillSpotlightMargin;
+	_select->resizeToWidth(width() - 2 * margin);
+	_select->moveToLeft(margin, margin);
 	_list->setGeometry(
 		0,
-		_select->height() + st::boxRadius,
+		margin + _select->height() + margin / 2,
 		width(),
 		int(_items.size()) * RowHeight());
 }
 
-void PaletteBox::updateHeight() {
+void PaletteContent::updateHeight() {
+	const auto margin = st::shillSpotlightMargin;
 	const auto listHeight = int(_items.size()) * RowHeight();
-	setDimensions(
-		st::boxWideWidth,
-		_select->height() + st::boxRadius + listHeight);
+	resize(
+		width(),
+		margin
+			+ _select->height()
+			+ (listHeight ? (margin / 2 + listHeight) : 0)
+			+ margin);
 	layout();
 }
 
-void PaletteBox::rebuild(const QString &query) {
+void PaletteContent::rebuild(const QString &query) {
 	const auto q = query.trimmed().toLower();
 	_items.clear();
 	if (q.isEmpty()) {
@@ -229,7 +255,7 @@ void PaletteBox::rebuild(const QString &query) {
 	return user ? user->note().text.simplified() : QString();
 }
 
-void PaletteBox::addChat(not_null<History*> history, const QString &hint) {
+void PaletteContent::addChat(not_null<History*> history, const QString &hint) {
 	const auto peer = history->peer;
 	const auto controller = _controller;
 	const auto note = NoteOf(peer);
@@ -245,7 +271,7 @@ void PaletteBox::addChat(not_null<History*> history, const QString &hint) {
 	});
 }
 
-void PaletteBox::addChats(const QString &query) {
+void PaletteContent::addChats(const QString &query) {
 	const auto session = &_controller->session();
 	auto added = 0;
 	auto seen = base::flat_set<not_null<PeerData*>>();
@@ -284,7 +310,7 @@ void PaletteBox::addChats(const QString &query) {
 	}
 }
 
-void PaletteBox::addSnoozed(const QString &query) {
+void PaletteContent::addSnoozed(const QString &query) {
 	const auto session = &_controller->session();
 	const auto snooze = Snooze::For(session);
 	for (const auto &[peerId, until] : snooze->list()) {
@@ -303,7 +329,7 @@ void PaletteBox::addSnoozed(const QString &query) {
 	}
 }
 
-void PaletteBox::addActions(const QString &query) {
+void PaletteContent::addActions(const QString &query) {
 	const auto controller = _controller;
 	const auto add = [&](
 			QString title,
@@ -506,31 +532,31 @@ void PaletteBox::addActions(const QString &query) {
 		});
 }
 
-void PaletteBox::select(int index) {
+void PaletteContent::select(int index) {
 	if (_selected != index) {
 		_selected = index;
 		_list->update();
 	}
 }
 
-void PaletteBox::activate(int index) {
+void PaletteContent::activate(int index) {
 	if (index < 0 || index >= int(_items.size())) {
 		return;
 	}
 	const auto action = _items[index].action;
-	closeBox();
+	_close();
 	if (action) {
 		action();
 	}
 }
 
-int PaletteBox::rowAt(QPoint position) const {
+int PaletteContent::rowAt(QPoint position) const {
 	const auto height = RowHeight();
 	const auto index = position.y() / height;
 	return (position.y() >= 0 && index < int(_items.size())) ? index : -1;
 }
 
-void PaletteBox::paintList(QPainter &p) {
+void PaletteContent::paintList(QPainter &p) {
 	const auto height = RowHeight();
 	const auto width = _list->width();
 	const auto padding = st::boxRowPadding.left();
@@ -591,9 +617,206 @@ void PaletteBox::paintList(QPainter &p) {
 	}
 }
 
+// Spring with a light overshoot, like iOS Spotlight settling in place.
+float64 Spring(float64 delta, float64 dt) {
+	const auto end = 1. - std::exp(-6.) * std::cos(8.);
+	return delta * (1. - std::exp(-6. * dt) * std::cos(8. * dt)) / end;
+}
+
+class SpotlightOverlay final : public Ui::RpWidget {
+public:
+	SpotlightOverlay(
+		not_null<Ui::RpWidget*> parent,
+		not_null<Window::SessionController*> controller);
+
+	void setPullProgress(float64 progress);
+	[[nodiscard]] float64 progress() const;
+	[[nodiscard]] bool interactive() const;
+	void open();
+	void close();
+
+protected:
+	void paintEvent(QPaintEvent *e) override;
+	void mousePressEvent(QMouseEvent *e) override;
+
+private:
+	void updatePanelGeometry();
+	void animateTo(
+		float64 to,
+		crl::time duration,
+		anim::transition transition,
+		Fn<void()> done);
+
+	const not_null<Window::SessionController*> _controller;
+	object_ptr<PaletteContent> _panel;
+	QImage _blurred;
+	QPixmap _panelCache;
+	Ui::Animations::Simple _animation;
+	float64 _progress = 0.;
+	bool _interactive = true;
+	bool _closing = false;
+
+};
+
+QPointer<SpotlightOverlay> Opened;
+
+SpotlightOverlay::SpotlightOverlay(
+	not_null<Ui::RpWidget*> parent,
+	not_null<Window::SessionController*> controller)
+: RpWidget(parent)
+, _controller(controller)
+, _panel(this, controller, [=] { close(); }) {
+	// Blur a small copy of the window: cheap and very soft when scaled up.
+	auto grab = Ui::GrabWidgetToImage(parent);
+	const auto small = grab.scaled(
+		std::max(grab.width() / 6, 1),
+		std::max(grab.height() / 6, 1),
+		Qt::IgnoreAspectRatio,
+		Qt::SmoothTransformation);
+	_blurred = Images::BlurLargeImage(
+		small.convertToFormat(QImage::Format_ARGB32_Premultiplied),
+		4);
+
+	_panel->hide();
+	parent->sizeValue() | rpl::on_next([=](QSize size) {
+		setGeometry(QRect(QPoint(), size));
+		updatePanelGeometry();
+	}, lifetime());
+	_panel->heightValue() | rpl::on_next([=] {
+		updatePanelGeometry();
+	}, lifetime());
+	show();
+	raise();
+}
+
+void SpotlightOverlay::updatePanelGeometry() {
+	const auto side = style::ConvertScale(24);
+	const auto width = std::min(
+		style::ConvertScale(560),
+		std::max(this->width() - 2 * side, style::ConvertScale(240)));
+	if (_panel->width() != width) {
+		_panel->resize(width, _panel->height());
+	}
+	const auto top = std::max(int(height() * 0.14), side);
+	_panel->move((this->width() - width) / 2, top);
+	if (!_panel->isHidden()) {
+		return;
+	}
+	_panelCache = QPixmap();
+	update();
+}
+
+float64 SpotlightOverlay::progress() const {
+	return _progress;
+}
+
+bool SpotlightOverlay::interactive() const {
+	return _interactive;
+}
+
+void SpotlightOverlay::setPullProgress(float64 progress) {
+	if (!_interactive) {
+		return;
+	}
+	_progress = std::clamp(progress, 0., 1.);
+	update();
+}
+
+void SpotlightOverlay::animateTo(
+		float64 to,
+		crl::time duration,
+		anim::transition transition,
+		Fn<void()> done) {
+	_animation.stop();
+	_animation.start([=](float64 value) {
+		_progress = value;
+		update();
+		if (!_animation.animating() && done) {
+			done();
+		}
+	}, _progress, to, duration, std::move(transition));
+}
+
+void SpotlightOverlay::open() {
+	if (_closing) {
+		return;
+	}
+	_interactive = false;
+	setFocus();
+	animateTo(1., 460, Spring, [=] {
+		_panelCache = QPixmap();
+		_panel->show();
+		_panel->setInnerFocus();
+		update();
+	});
+}
+
+void SpotlightOverlay::close() {
+	if (_closing) {
+		return;
+	}
+	_closing = true;
+	_interactive = false;
+	if (!_panel->isHidden()) {
+		_panelCache = Ui::GrabWidget(_panel.data());
+		_panel->hide();
+	}
+	_controller->widget()->setInnerFocus();
+	animateTo(0., 180, anim::easeOutCirc, [=] {
+		deleteLater();
+	});
+}
+
+void SpotlightOverlay::paintEvent(QPaintEvent *e) {
+	auto p = QPainter(this);
+	auto hq = PainterHighQualityEnabler(p);
+	p.setRenderHint(QPainter::SmoothPixmapTransform);
+	const auto backdrop = std::clamp(_progress, 0., 1.);
+	p.setOpacity(backdrop);
+	p.drawImage(rect(), _blurred);
+	p.fillRect(
+		rect(),
+		Window::Theme::IsNightMode()
+			? QColor(0, 0, 0, 90)
+			: QColor(255, 255, 255, 60));
+	if (!_panel->isHidden()) {
+		return;
+	}
+	if (_panelCache.isNull()) {
+		_panelCache = Ui::GrabWidget(_panel.data());
+	}
+	const auto target = QRectF(_panel->geometry());
+	const auto shift = (1. - _progress) * -style::ConvertScale(70);
+	const auto scale = 0.92 + 0.08 * _progress;
+	p.setOpacity(std::clamp(_progress * 1.5, 0., 1.));
+	p.translate(target.center() + QPointF(0., shift));
+	p.scale(scale, scale);
+	p.translate(-target.center());
+	p.drawPixmap(target.topLeft(), _panelCache);
+}
+
+void SpotlightOverlay::mousePressEvent(QMouseEvent *e) {
+	if (!_interactive) {
+		close();
+	}
+}
+
+[[nodiscard]] SpotlightOverlay *CreateOverlay(
+		not_null<Window::SessionController*> controller) {
+	if (Opened) {
+		return nullptr;
+	}
+	const auto parent = controller->widget()->bodyWidget();
+	const auto result = Ui::CreateChild<SpotlightOverlay>(
+		parent,
+		controller);
+	Opened = result;
+	return result;
+}
+
 [[nodiscard]] bool ShowForActiveWindow() {
 	if (Opened) {
-		Opened->closeBox();
+		Opened->close();
 		return true;
 	}
 	const auto window = Core::App().activeWindow();
@@ -608,9 +831,52 @@ void PaletteBox::paintList(QPainter &p) {
 } // namespace
 
 void ShowCommandPalette(not_null<Window::SessionController*> controller) {
-	auto box = Box<PaletteBox>(controller);
-	Opened = box.data();
-	controller->show(std::move(box));
+	if (const auto overlay = CreateOverlay(controller)) {
+		overlay->open();
+	}
+}
+
+void SetupPullToSearch(
+		not_null<Ui::ElasticScroll*> scroll,
+		not_null<Window::SessionController*> controller,
+		Fn<bool()> allowed) {
+	struct State {
+		QPointer<SpotlightOverlay> overlay;
+	};
+	const auto state = scroll->lifetime().make_state<State>();
+	rpl::combine(
+		scroll->positionValue(),
+		scroll->movementValue()
+	) | rpl::on_next([=](
+			Ui::ElasticScrollPosition position,
+			Ui::ElasticScrollMovement movement) {
+		const auto overlay = state->overlay.data();
+		if (overlay && !overlay->interactive()) {
+			return;
+		}
+		const auto pulled = std::max(-position.overscroll, 0);
+		if (movement == Ui::ElasticScrollMovement::Progress) {
+			if (!overlay) {
+				if (!pulled || !allowed()) {
+					return;
+				}
+				state->overlay = CreateOverlay(controller);
+				if (!state->overlay) {
+					return;
+				}
+			}
+			state->overlay->setPullProgress(
+				pulled / float64(st::shillSpotlightPull));
+		} else if (overlay) {
+			// Fingers lifted: finish like Spotlight, or slide back.
+			if (overlay->progress() >= 0.5) {
+				overlay->open();
+			} else {
+				overlay->close();
+			}
+			state->overlay = nullptr;
+		}
+	}, scroll->lifetime());
 }
 
 bool HandlePaletteShortcutEvent(

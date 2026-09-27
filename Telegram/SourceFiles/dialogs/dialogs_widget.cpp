@@ -7,6 +7,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "dialogs/dialogs_widget.h"
 
+#include "shillgramm/shill_palette.h"
+
 #include "base/call_delayed.h"
 #include "base/qt/qt_key_modifiers.h"
 #include "base/options.h"
@@ -500,6 +502,11 @@ Widget::Widget(
 		_stories ? OverscrollType::Virtual : OverscrollType::Real,
 		OverscrollType::Real);
 	_scroll->setOverscrollPullDistances(st::dialogsStoriesFull.height, 0);
+	Shill::SetupPullToSearch(_scroll.data(), controller, [=] {
+		return (!_stories || _stories->empty())
+			&& !_searchHasFocus
+			&& _searchState.query.isEmpty();
+	});
 	_innerList = _scroll->setOwnedWidget(
 		object_ptr<Ui::VerticalLayout>(this));
 	_inner = _innerList->add(object_ptr<InnerWidget>(
