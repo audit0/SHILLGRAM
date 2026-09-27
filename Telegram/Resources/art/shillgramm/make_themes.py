@@ -284,6 +284,18 @@ for theme, band, capsule in ((day, '80', 'b3'), (nite, '4d', '8c')):
             theme[key] = value + alpha
 
 
+# Archive and Saved Messages: dark plates with a mint icon (the icon colour is
+# activeLineFg in code). Initials on regular userpics stay readable.
+day.update({'historyPeerArchiveUserpicBg': '#0b1210',
+            'historyPeerSavedMessagesBg': '#16211d',
+            'historyPeerSavedMessagesBg2': '#0b1210',
+            'historyPeerUserpicFg': '#0b1210'})
+nite.update({'historyPeerArchiveUserpicBg': '#0f1a16',
+             'historyPeerSavedMessagesBg': '#132520',
+             'historyPeerSavedMessagesBg2': '#0a100e',
+             'historyPeerUserpicFg': '#e8f5ef'})
+
+
 def solid_png(hex6):
     r, g, b, _ = rgba(hex6)
     raw = b'\x00' + bytes(round(x * 255) for x in (r, g, b))

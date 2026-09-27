@@ -283,7 +283,11 @@ void Folder::paintUserpic(
 				rect,
 				(*overrideFg)->c);
 		} else {
-			st::dialogsArchiveUserpic.paintInCenter(p, rect);
+			// ShillGramm (SHILLVPN style): mint icon on a dark plate.
+			st::dialogsArchiveUserpic.paintInCenter(
+				p,
+				rect,
+				st::activeLineFg->c);
 		}
 	} else {
 		p.save();
@@ -298,7 +302,11 @@ void Folder::paintUserpic(
 				rect,
 				(*overrideFg)->c);
 		} else {
-			st::dialogsArchiveUserpic.paintInCenter(p, rect);
+			// ShillGramm (SHILLVPN style): mint icon on a dark plate.
+			st::dialogsArchiveUserpic.paintInCenter(
+				p,
+				rect,
+				st::activeLineFg->c);
 		}
 		p.restore();
 	}

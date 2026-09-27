@@ -402,7 +402,8 @@ void EmptyUserpic::PaintSavedMessages(
 		{ 0., st::historyPeerSavedMessagesBg->c },
 		{ 1., st::historyPeerSavedMessagesBg2->c }
 	});
-	const auto &fg = st::historyPeerUserpicFg;
+	// ShillGramm (SHILLVPN style): mint icon on a dark plate.
+	const auto &fg = st::activeLineFg;
 	PaintSavedMessages(p, x, y, outerWidth, size, QBrush(bg), fg);
 }
 
