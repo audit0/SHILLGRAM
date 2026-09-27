@@ -698,13 +698,13 @@ SpotlightOverlay::SpotlightOverlay(
 		QImage::Format_ARGB32_Premultiplied);
 	const auto ratio = _snapshot.devicePixelRatio();
 	const auto small = _snapshot.scaled(
-		std::max(_snapshot.width() / 8, 1),
-		std::max(_snapshot.height() / 8, 1),
+		std::max(_snapshot.width() / 14, 1),
+		std::max(_snapshot.height() / 14, 1),
 		Qt::IgnoreAspectRatio,
 		Qt::SmoothTransformation);
 	_blurred = Images::BlurLargeImage(
 		small.convertToFormat(QImage::Format_ARGB32_Premultiplied),
-		3
+		5
 	).scaled(
 		_snapshot.size(),
 		Qt::IgnoreAspectRatio,

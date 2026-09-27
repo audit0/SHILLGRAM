@@ -240,7 +240,7 @@ nite.update({'msgServiceBg': '#2c2c2e', 'msgServiceFg': '#f5f5f7',
 
 # Glass: the window behind these areas is the macOS vibrancy layer.
 GLASS_KEYS = ('dialogsBg', 'sideBarBg', 'titleBg', 'titleBgActive', 'topBarBg')
-for theme, alpha in ((day, 'c7'), (nite, '99')):
+for theme, alpha in ((day, '99'), (nite, '66')):
     for k in GLASS_KEYS:
         v = theme[k]
         if v.startswith('#') and len(v) == 7:
@@ -257,8 +257,8 @@ def solid(theme, key):
 
 
 for theme, alpha, hover, over in (
-        (day, 'bf', None, 'e0'),
-        (nite, '9e', '#3a3a3c', 'cc')):
+        (day, '99', None, 'cc'),
+        (nite, '73', '#3a3a3c', 'b3')):
     base = solid(theme, 'menuBg') or solid(theme, 'windowBg')
     if base:
         theme['menuBg'] = base + alpha

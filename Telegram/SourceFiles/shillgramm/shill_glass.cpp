@@ -96,13 +96,13 @@ public:
 		}
 		const auto ratio = snapshot.devicePixelRatio();
 		const auto small = snapshot.scaled(
-			std::max(snapshot.width() / 8, 1),
-			std::max(snapshot.height() / 8, 1),
+			std::max(snapshot.width() / 14, 1),
+			std::max(snapshot.height() / 14, 1),
 			Qt::IgnoreAspectRatio,
 			Qt::SmoothTransformation);
 		_blurred = Images::BlurLargeImage(
 			small.convertToFormat(QImage::Format_ARGB32_Premultiplied),
-			3
+			5
 		).scaled(
 			snapshot.size(),
 			Qt::IgnoreAspectRatio,
