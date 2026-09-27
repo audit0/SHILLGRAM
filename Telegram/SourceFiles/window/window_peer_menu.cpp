@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "window/window_peer_menu.h"
 
+#include "shillgramm/shill_agents.h"
 #include "shillgramm/shill_pins.h"
 #include "shillgramm/shill_snooze.h"
 
@@ -318,6 +319,7 @@ private:
 	void addToggleUnreadMark();
 	void addToggleArchive();
 	void addSnooze();
+	void addAgentWrite();
 	void addClearHistory();
 	void addDeleteChat();
 	void addLeaveChat();
@@ -866,6 +868,22 @@ void Filler::addSnooze() {
 			Shill::FillSnoozeMenu(menu, controller, history);
 		},
 	});
+}
+
+void Filler::addAgentWrite() {
+	if (!_peer
+		|| _topic
+		|| _request.section == Section::SubsectionTabsMenu) {
+		return;
+	}
+	const auto history = _request.key.history();
+	if (!history || !Shill::CanOfferAgentWrite(history)) {
+		return;
+	}
+	const auto controller = _controller;
+	_addAction(Shill::AgentWriteMenuLabel(history), [=] {
+		Shill::ToggleAgentWrite(controller, history);
+	}, &st::menuIconBot);
 }
 
 void Filler::addToggleArchive() {
@@ -1898,6 +1916,7 @@ void Filler::fillContextMenuActions() {
 	addHidePromotion();
 	addToggleArchive();
 	addSnooze();
+	addAgentWrite();
 	addTogglePin();
 	if (ViewProfileInChatsListContextMenu.value()) {
 		addInfo();

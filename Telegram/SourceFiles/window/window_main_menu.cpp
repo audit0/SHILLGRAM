@@ -66,6 +66,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "window/window_controller.h"
 #include "window/window_main_menu_helpers.h"
 #include "window/window_peer_menu.h"
+#include "shillgramm/shill_agents.h"
+#include "shillgramm/shill_snooze.h" // Tr
 #include "shillgramm/shill_vpn.h"
 #include "window/window_session_controller.h"
 #include "styles/style_chat.h" // popupMenuExpandedSeparator
@@ -708,6 +710,13 @@ void MainMenu::setupMenu() {
 		{ &st::menuIconNetwork }
 	)->setClickedCallback([=] {
 		Shill::ShowVpnBox(controller);
+	});
+	// ShillGramm: Telegram for Claude Code and Codex in one click.
+	addAction(
+		rpl::single(Shill::Tr("AI agents", "Агенты ИИ")),
+		{ &st::menuIconBot }
+	)->setClickedCallback([=] {
+		Shill::ShowAgentsBox(controller);
 	});
 
 	if (!_controller->session().supportMode()) {

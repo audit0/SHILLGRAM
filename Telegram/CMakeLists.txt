@@ -2222,6 +2222,8 @@ PRIVATE
     apiwrap.cpp
     apiwrap.h
     api_credentials.cpp
+    shillgramm/shill_agents.cpp
+    shillgramm/shill_agents.h
     shillgramm/shill_glass.cpp
     shillgramm/shill_glass.h
     shillgramm/shill_glass_mac.mm
