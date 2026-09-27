@@ -2231,6 +2231,7 @@ PRIVATE
     shillgramm/shill_panel.h
     shillgramm/shill_snooze.cpp
     shillgramm/shill_snooze.h
+    shillgramm/shill_version.h
     config.h
     logs.cpp
     logs.h

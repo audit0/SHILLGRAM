@@ -7,6 +7,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "boxes/about_box.h"
 
+#include "shillgramm/shill_version.h"
+
 #include "base/platform/base_platform_info.h"
 #include "core/application.h"
 #include "core/file_utilities.h"
@@ -55,7 +57,7 @@ rpl::producer<TextWithEntities> Text() {
 } // namespace
 
 void AboutBox(not_null<Ui::GenericBox*> box, Window::SessionController* controller) {
-	box->setTitle(rpl::single(u"AyuGram Desktop"_q));
+	box->setTitle(rpl::single(u"ShillGramm Desktop"_q));
 
 	auto layout = box->verticalLayout();
 
@@ -73,7 +75,7 @@ void AboutBox(not_null<Ui::GenericBox*> box, Window::SessionController* controll
 			st::boxRowPadding.right(),
 			st::boxRowPadding.bottom()));
 	version->setClickedCallback([=] {
-		File::OpenUrl(Core::App().changelogLink());
+		File::OpenUrl(u"https://t.me/shillgramm"_q);
 	});
 
 	Ui::AddSkip(layout, st::aboutTopSkip);
@@ -90,12 +92,12 @@ void AboutBox(not_null<Ui::GenericBox*> box, Window::SessionController* controll
 
 	box->addButton(tr::lng_close(), [=] { box->closeBox(); });
 	box->addLeftButton(
-		rpl::single(QString("@AyuGramReleases")),
+		rpl::single(QString("@shillgramm")),
 		[box, controller]
 		{
 			box->closeBox();
 			controller->showPeerByLink(Window::PeerByLinkInfo{
-				.usernameOrId = QString("ayugramreleases"),
+				.usernameOrId = QString("shillgramm"),
 			});
 		});
 
@@ -103,7 +105,7 @@ void AboutBox(not_null<Ui::GenericBox*> box, Window::SessionController* controll
 }
 
 QString currentVersionText() {
-	auto result = QString::fromLatin1(AppVersionStr);
+	auto result = QString::fromLatin1(Shill::kVersionStr);
 	if (cAlphaVersion()) {
 		result += u" alpha %1"_q.arg(cAlphaVersion() % 1000);
 	} else if (AppBetaVersion) {

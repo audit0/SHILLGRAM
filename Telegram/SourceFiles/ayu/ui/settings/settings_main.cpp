@@ -6,6 +6,9 @@
 // Copyright @Radolyn, 2026
 #include "ayu/ui/settings/settings_main.h"
 
+#include "shillgramm/shill_snooze.h" // Shill::Tr
+#include "shillgramm/shill_version.h"
+
 #include "settings/sections/settings_main.h"
 #include "lang_auto.h"
 #include "ayu/ayu_settings.h"
@@ -71,7 +74,7 @@ void BuildVersionInfo(SectionBuilder &builder) {
 				ctx.container,
 				rpl::single(
 					QString("ShillGramm Desktop v")
-					+ QString::fromLatin1(AppVersionStr)),
+					+ QString::fromLatin1(Shill::kVersionStr)),
 				st::boxTitle),
 			.align = style::al_top,
 		};
@@ -83,7 +86,11 @@ void BuildVersionInfo(SectionBuilder &builder) {
 		return {
 			.widget = object_ptr<Ui::FlatLabel>(
 				ctx.container,
-				tr::ayu_SettingsDescription(),
+				rpl::single(Shill::Tr(
+					"Telegram with a glass design, Cmd+K quick actions, "
+					"snoozed chats and notes about people.",
+					"Telegram со стеклянным дизайном, быстрыми действиями "
+					"по Cmd+K, отложенными чатами и заметками о людях.")),
 				st::centeredBoxLabel),
 			.align = style::al_top,
 		};
