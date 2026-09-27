@@ -22,6 +22,10 @@ void SetupPullToSearch(
 	not_null<Window::SessionController*> controller,
 	Fn<bool()> allowed);
 
+// The same gesture anywhere else in the window.
+void SetupWindowPullToSearch(
+	not_null<Window::SessionController*> controller);
+
 // Cmd+K from the app event filter. A field with selected text keeps
 // its own Cmd+K ("insert link").
 bool HandlePaletteShortcutEvent(

@@ -617,6 +617,15 @@ void PaletteContent::paintList(QPainter &p) {
 	}
 }
 
+[[nodiscard]] QRect ImageRect(const QImage &image, QRect logical) {
+	const auto ratio = image.devicePixelRatio();
+	return QRect(
+		int(logical.x() * ratio),
+		int(logical.y() * ratio),
+		int(logical.width() * ratio),
+		int(logical.height() * ratio));
+}
+
 // Spring with a light overshoot, like iOS Spotlight settling in place.
 float64 Spring(float64 delta, float64 dt) {
 	const auto end = 1. - std::exp(-6.) * std::cos(8.);
@@ -649,7 +658,9 @@ private:
 
 	const not_null<Window::SessionController*> _controller;
 	object_ptr<PaletteContent> _panel;
+	QImage _snapshot;
 	QImage _blurred;
+	QSize _snapshotSize;
 	QPixmap _panelCache;
 	Ui::Animations::Simple _animation;
 	float64 _progress = 0.;
@@ -666,19 +677,37 @@ SpotlightOverlay::SpotlightOverlay(
 : RpWidget(parent)
 , _controller(controller)
 , _panel(this, controller, [=] { close(); }) {
-	// Blur a small copy of the window: cheap and very soft when scaled up.
-	auto grab = Ui::GrabWidgetToImage(parent);
-	const auto small = grab.scaled(
-		std::max(grab.width() / 6, 1),
-		std::max(grab.height() / 6, 1),
+	// One snapshot of the window and one blurred copy, both prepared up
+	// front. The overlay is opaque, so nothing under it repaints while
+	// it animates - each frame is just two ready images.
+	const auto started = crl::now();
+	_snapshotSize = parent->size();
+	_snapshot = Ui::GrabWidgetToImage(parent).convertToFormat(
+		QImage::Format_ARGB32_Premultiplied);
+	const auto ratio = _snapshot.devicePixelRatio();
+	const auto small = _snapshot.scaled(
+		std::max(_snapshot.width() / 8, 1),
+		std::max(_snapshot.height() / 8, 1),
 		Qt::IgnoreAspectRatio,
 		Qt::SmoothTransformation);
 	_blurred = Images::BlurLargeImage(
 		small.convertToFormat(QImage::Format_ARGB32_Premultiplied),
-		4);
+		3
+	).scaled(
+		_snapshot.size(),
+		Qt::IgnoreAspectRatio,
+		Qt::SmoothTransformation);
+	_blurred.setDevicePixelRatio(ratio);
+	LOG(("ShillGramm Spotlight: backdrop prepared in %1 ms"
+		).arg(crl::now() - started));
 
+	setAttribute(Qt::WA_OpaquePaintEvent);
 	_panel->hide();
 	parent->sizeValue() | rpl::on_next([=](QSize size) {
+		if (size != _snapshotSize) {
+			// The snapshot no longer matches the window.
+			close();
+		}
 		setGeometry(QRect(QPoint(), size));
 		updatePanelGeometry();
 	}, lifetime());
@@ -769,19 +798,22 @@ void SpotlightOverlay::close() {
 
 void SpotlightOverlay::paintEvent(QPaintEvent *e) {
 	auto p = QPainter(this);
-	auto hq = PainterHighQualityEnabler(p);
-	p.setRenderHint(QPainter::SmoothPixmapTransform);
+	const auto clip = e->rect();
 	const auto backdrop = std::clamp(_progress, 0., 1.);
+	p.drawImage(clip, _snapshot, ImageRect(_snapshot, clip));
 	p.setOpacity(backdrop);
-	p.drawImage(rect(), _blurred);
+	p.drawImage(clip, _blurred, ImageRect(_blurred, clip));
 	p.fillRect(
-		rect(),
+		clip,
 		Window::Theme::IsNightMode()
 			? QColor(0, 0, 0, 90)
 			: QColor(255, 255, 255, 60));
+	p.setOpacity(1.);
 	if (!_panel->isHidden()) {
 		return;
 	}
+	auto hq = PainterHighQualityEnabler(p);
+	p.setRenderHint(QPainter::SmoothPixmapTransform);
 	if (_panelCache.isNull()) {
 		_panelCache = Ui::GrabWidget(_panel.data());
 	}
@@ -836,47 +868,134 @@ void ShowCommandPalette(not_null<Window::SessionController*> controller) {
 	}
 }
 
+namespace {
+
+// One pull gesture: the overlay follows it and settles on release.
+struct PullSession {
+	QPointer<SpotlightOverlay> overlay;
+
+	void progress(
+			not_null<Window::SessionController*> controller,
+			float64 value) {
+		if (!overlay) {
+			if (value <= 0.) {
+				return;
+			}
+			overlay = CreateOverlay(controller);
+			if (!overlay) {
+				return;
+			}
+		}
+		if (overlay->interactive()) {
+			overlay->setPullProgress(value);
+		}
+	}
+	void finish() {
+		if (const auto raw = overlay.data(); raw && raw->interactive()) {
+			if (raw->progress() >= 0.5) {
+				raw->open();
+			} else {
+				raw->close();
+			}
+		}
+		overlay = nullptr;
+	}
+};
+
+// Two-finger pull anywhere in the window that doesn't scroll by itself:
+// the search bar, the empty chat area, panel edges.
+class WindowPullFilter final : public QObject {
+public:
+	WindowPullFilter(
+		not_null<QObject*> parent,
+		not_null<Window::SessionController*> controller)
+	: QObject(parent)
+	, _controller(controller) {
+	}
+
+protected:
+	bool eventFilter(QObject *object, QEvent *e) override {
+		if (e->type() != QEvent::Wheel) {
+			return false;
+		}
+		const auto wheel = static_cast<QWheelEvent*>(e);
+		if (wheel->pixelDelta().isNull()
+			&& wheel->phase() == Qt::NoScrollPhase) {
+			return false; // A mouse wheel, not a trackpad gesture.
+		}
+		switch (wheel->phase()) {
+		case Qt::ScrollBegin:
+			_pull = 0.;
+			_tracking = !Opened;
+			break;
+		case Qt::ScrollUpdate:
+			if (_tracking) {
+				_pull = std::max(_pull + wheel->pixelDelta().y(), 0.);
+				_session.progress(
+					_controller,
+					_pull / (st::shillSpotlightPull * 1.5));
+				return true;
+			}
+			break;
+		case Qt::ScrollEnd:
+			if (_tracking) {
+				_tracking = false;
+				_session.finish();
+				return true;
+			}
+			break;
+		default:
+			break;
+		}
+		return false;
+	}
+
+private:
+	const not_null<Window::SessionController*> _controller;
+	PullSession _session;
+	float64 _pull = 0.;
+	bool _tracking = false;
+
+};
+
+} // namespace
+
 void SetupPullToSearch(
 		not_null<Ui::ElasticScroll*> scroll,
 		not_null<Window::SessionController*> controller,
 		Fn<bool()> allowed) {
-	struct State {
-		QPointer<SpotlightOverlay> overlay;
-	};
-	const auto state = scroll->lifetime().make_state<State>();
+	const auto session = scroll->lifetime().make_state<PullSession>();
 	rpl::combine(
 		scroll->positionValue(),
 		scroll->movementValue()
 	) | rpl::on_next([=](
 			Ui::ElasticScrollPosition position,
 			Ui::ElasticScrollMovement movement) {
-		const auto overlay = state->overlay.data();
-		if (overlay && !overlay->interactive()) {
-			return;
-		}
 		const auto pulled = std::max(-position.overscroll, 0);
 		if (movement == Ui::ElasticScrollMovement::Progress) {
-			if (!overlay) {
-				if (!pulled || !allowed()) {
-					return;
-				}
-				state->overlay = CreateOverlay(controller);
-				if (!state->overlay) {
-					return;
-				}
+			if (!session->overlay && (!pulled || !allowed())) {
+				return;
 			}
-			state->overlay->setPullProgress(
+			session->progress(
+				controller,
 				pulled / float64(st::shillSpotlightPull));
-		} else if (overlay) {
+		} else if (session->overlay) {
 			// Fingers lifted: finish like Spotlight, or slide back.
-			if (overlay->progress() >= 0.5) {
-				overlay->open();
-			} else {
-				overlay->close();
-			}
-			state->overlay = nullptr;
+			session->finish();
 		}
 	}, scroll->lifetime());
+}
+
+void SetupWindowPullToSearch(
+		not_null<Window::SessionController*> controller) {
+	const auto body = controller->widget()->bodyWidget();
+	const auto filter = new WindowPullFilter(body, controller);
+	body->installEventFilter(filter);
+	controller->lifetime().add([=, weak = QPointer<QObject>(filter)] {
+		if (const auto strong = weak.data()) {
+			delete strong;
+		}
+	});
 }
 
 bool HandlePaletteShortcutEvent(

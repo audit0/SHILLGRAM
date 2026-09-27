@@ -131,6 +131,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 
 // AyuGram includes
 #include "ayu/ayu_settings.h"
+#include "shillgramm/shill_palette.h"
 #include "shillgramm/shill_snooze.h"
 
 
@@ -1573,6 +1574,7 @@ SessionController::SessionController(
 , _chatStyle(std::make_unique<Ui::ChatStyle>(session->colorIndicesValue())) {
 	init();
 	Shill::Snooze::For(session); // ShillGramm: resume snoozed chats.
+	Shill::SetupWindowPullToSearch(this);
 
 	_chatStyleTheme = _defaultChatTheme;
 	_chatStyle->apply(_defaultChatTheme.get());
