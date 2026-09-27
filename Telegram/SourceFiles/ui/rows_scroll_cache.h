@@ -41,7 +41,12 @@ public:
 			p.drawImage(0, 0, i->second);
 			return;
 		}
-		auto image = QImage(physicalSize, QImage::Format_RGB32);
+		// ShillGramm: rows may have a translucent (glass) background, so
+		// the cache must start fully transparent, not from stale memory.
+		auto image = QImage(
+			physicalSize,
+			QImage::Format_ARGB32_Premultiplied);
+		image.fill(Qt::transparent);
 		image.setDevicePixelRatio(ratio);
 		paintToImage(image);
 		p.drawImage(0, 0, image);

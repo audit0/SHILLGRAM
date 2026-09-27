@@ -247,6 +247,26 @@ for theme, alpha in ((day, 'c7'), (nite, '99')):
             theme[k] = v + alpha
 
 
+# Menus: popup windows get the macOS menu material behind them, so their
+# background is only lightly tinted (child dropdowns stay readable).
+def solid(theme, key):
+    value = theme.get(key, '')
+    while value and not value.startswith('#') and value in theme:
+        value = theme[value]  # follow 'menuBg: windowBg;' references
+    return value if value.startswith('#') and len(value) == 7 else None
+
+
+for theme, alpha, hover, over in (
+        (day, 'bf', None, 'e0'),
+        (nite, '9e', '#3a3a3c', 'cc')):
+    base = solid(theme, 'menuBg') or solid(theme, 'windowBg')
+    if base:
+        theme['menuBg'] = base + alpha
+    hover = hover or solid(theme, 'menuBgOver')
+    if hover:
+        theme['menuBgOver'] = hover + over
+
+
 def solid_png(hex6):
     r, g, b, _ = rgba(hex6)
     raw = b'\x00' + bytes(round(x * 255) for x in (r, g, b))

@@ -605,7 +605,7 @@ void ChatBackground::start() {
 	// ShillGramm: until the user picks another theme, use ours. The applied
 	// theme is cached in tdata, so bump kShillThemeVersion whenever the
 	// palettes change to re-apply them once.
-	constexpr auto kShillThemeVersion = 40;
+	constexpr auto kShillThemeVersion = 44;
 	const auto marker = cWorkingDir()
 		+ u"tdata/shillgramm_theme_v%1"_q.arg(kShillThemeVersion);
 	if (!QFile::exists(marker)

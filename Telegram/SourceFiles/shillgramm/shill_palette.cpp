@@ -72,7 +72,7 @@ public:
 	PaletteContent(
 		QWidget *parent,
 		not_null<Window::SessionController*> controller,
-		Fn<void()> close);
+		Fn<void(bool animated)> close);
 
 	void setInnerFocus();
 	void appendQuery(const QString &text);
@@ -99,7 +99,7 @@ private:
 	[[nodiscard]] static int RowHeight();
 
 	const not_null<Window::SessionController*> _controller;
-	const Fn<void()> _close;
+	const Fn<void(bool animated)> _close;
 	object_ptr<Ui::MultiSelect> _select;
 	object_ptr<Ui::RpWidget> _list;
 	std::vector<Item> _items;
@@ -114,7 +114,7 @@ int PaletteContent::RowHeight() {
 PaletteContent::PaletteContent(
 	QWidget *parent,
 	not_null<Window::SessionController*> controller,
-	Fn<void()> close)
+	Fn<void(bool animated)> close)
 : RpWidget(parent)
 , _controller(controller)
 , _close(std::move(close))
@@ -136,7 +136,7 @@ void PaletteContent::init() {
 		activate(_selected);
 	});
 	_select->setCancelledCallback([=] {
-		_close();
+		_close(true);
 	});
 	_select->setResizedCallback([=] {
 		updateHeight();
@@ -193,7 +193,7 @@ void PaletteContent::keyPressEvent(QKeyEvent *e) {
 		&& !_select->getQuery().isEmpty()) {
 		_select->clearQuery();
 	} else if (e->key() == Qt::Key_Escape) {
-		_close();
+		_close(true);
 	} else {
 		RpWidget::keyPressEvent(e);
 	}
@@ -552,7 +552,7 @@ void PaletteContent::activate(int index) {
 		return;
 	}
 	const auto action = _items[index].action;
-	_close();
+	_close(false); // Gone at once: the next box may snapshot the window.
 	if (action) {
 		action();
 	}
@@ -650,7 +650,7 @@ public:
 	[[nodiscard]] float64 progress() const;
 	[[nodiscard]] bool interactive() const;
 	void open();
-	void close();
+	void close(bool animated = true);
 
 protected:
 	void paintEvent(QPaintEvent *e) override;
@@ -687,7 +687,7 @@ SpotlightOverlay::SpotlightOverlay(
 	not_null<Window::SessionController*> controller)
 : RpWidget(parent)
 , _controller(controller)
-, _panel(this, controller, [=] { close(); }) {
+, _panel(this, controller, [=](bool animated) { close(animated); }) {
 	// One snapshot of the window and one blurred copy, both prepared up
 	// front. The overlay is opaque, so nothing under it repaints while
 	// it animates - each frame is just two ready images.
@@ -794,8 +794,16 @@ void SpotlightOverlay::open() {
 	});
 }
 
-void SpotlightOverlay::close() {
-	if (_closing) {
+void SpotlightOverlay::close(bool animated) {
+	if (!animated) {
+		_closing = true;
+		if (const auto previous = _previousFocus.data()) {
+			previous->setFocus();
+		}
+		hide();
+		deleteLater();
+		return;
+	} else if (_closing) {
 		return;
 	}
 	_closing = true;
