@@ -3,11 +3,13 @@ ShillGramm: Cmd+K command palette - chats, actions and settings in one place.
 */
 #include "shillgramm/shill_palette.h"
 
+#include "shillgramm/shill_panel.h"
 #include "shillgramm/shill_snooze.h"
 #include "boxes/peer_list_controllers.h"
 #include "calls/calls_box_controller.h"
 #include "core/application.h"
 #include "core/core_settings.h"
+#include "data/data_chat_filters.h"
 #include "data/data_folder.h"
 #include "data/data_peer.h"
 #include "data/data_session.h"
@@ -55,36 +57,6 @@ struct Item {
 	Ui::PeerUserpicView userpic;
 	Fn<void()> action;
 };
-
-// Chat list collapsed to avatars and back, for small screens.
-float64 SavedDialogsRatio = 0.;
-
-[[nodiscard]] bool ChatListCollapsed(
-		not_null<Window::SessionController*> controller) {
-	const auto nochat = !controller->mainSectionShown();
-	return Core::App().settings().dialogsWidthRatio(nochat) == 0.;
-}
-
-void ToggleChatListCollapsed(
-		not_null<Window::SessionController*> controller) {
-	auto &settings = Core::App().settings();
-	const auto nochat = !controller->mainSectionShown();
-	const auto current = settings.dialogsWidthRatio(nochat);
-	if (current > 0.) {
-		SavedDialogsRatio = current;
-		settings.updateDialogsWidthRatio(0., nochat);
-	} else {
-		const auto body = controller->widget()->bodyWidget()->width()
-			- controller->filtersWidth();
-		const auto minimal = st::columnMinimalWidthLeft
-			/ float64(std::max(body, 1));
-		settings.updateDialogsWidthRatio(
-			std::max(SavedDialogsRatio, minimal),
-			nochat);
-	}
-	Core::App().saveSettingsDelayed();
-	controller->updateColumnLayout();
-}
 
 [[nodiscard]] bool Matches(const QString &query, const QString &text) {
 	return query.isEmpty() || text.toLower().contains(query);
@@ -481,8 +453,42 @@ void PaletteBox::addActions(const QString &query) {
 				? Tr("Expand chat list", "Развернуть список чатов")
 				: Tr("Collapse chat list", "Свернуть список чатов")),
 			collapsed ? &st::menuIconExpand : &st::menuIconCollapse,
-			u"compact collapse expand narrow sidebar компактный свернуть развернуть узкий список"_q,
+			u"collapse expand narrow avatars свернуть развернуть узкий аватарки список"_q,
 			[=] { ToggleChatListCollapsed(controller); });
+		const auto preset = [&](QString title, QString keywords, int width) {
+			add(
+				Tr("Panel: ", "Панель: ") + title,
+				&st::menuIconChats,
+				u"panel view width sidebar панель вид ширина "_q + keywords,
+				[=] { SetChatListWidth(controller, width); });
+		};
+		preset(
+			Tr("compact", "компактная"),
+			u"compact компактная"_q,
+			style::ConvertScale(200));
+		preset(
+			Tr("standard", "обычная"),
+			u"standard normal обычная"_q,
+			style::ConvertScale(300));
+		preset(
+			Tr("wide", "широкая"),
+			u"wide широкая"_q,
+			style::ConvertScale(420));
+		if (controller->session().data().chatsFilters().has()) {
+			const auto horizontal
+				= Core::App().settings().chatFiltersHorizontal();
+			add(
+				horizontal
+					? Tr("Folder tabs on the left", "Папки слева")
+					: Tr("Folder tabs at the top", "Папки сверху"),
+				&st::menuIconShowInFolder,
+				u"folders tabs top left папки вкладки сверху слева"_q,
+				[=] {
+					Core::App().settings().setChatFiltersHorizontal(
+						!horizontal);
+					Core::App().saveSettingsDelayed();
+				});
+		}
 	}
 	add(
 		(Window::Theme::IsNightMode()

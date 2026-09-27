@@ -2660,10 +2660,14 @@ int SessionController::countDialogsWidthFromRatio(int bodyWidth) const {
 		return 0;
 	}
 	const auto nochat = !mainSectionShown();
-	const auto width = bodyWidth
-		* Core::App().settings().dialogsWidthRatio(nochat);
-	auto result = qRound(width);
-	accumulate_max(result, st::columnMinimalWidthLeft);
+	const auto ratio = Core::App().settings().dialogsWidthRatio(nochat);
+	auto result = qRound(bodyWidth * ratio);
+	// ShillGramm: any width from avatars-only up, not just 260px+.
+	accumulate_max(
+		result,
+		(ratio > 0.)
+			? (dialogsSmallColumnWidth() + 1)
+			: int(st::columnMinimalWidthLeft));
 //	accumulate_min(result, st::columnMaximalWidthLeft);
 	return result;
 }
@@ -2680,6 +2684,9 @@ SessionController::ShrinkResult SessionController::shrinkDialogsAndThirdColumns(
 		int thirdWidth,
 		int bodyWidth) const {
 	auto chatWidth = st::columnMinimalWidthMain;
+	const auto minimalDialogs = std::min(
+		dialogsWidth,
+		int(st::columnMinimalWidthLeft));
 	if (dialogsWidth + thirdWidth + chatWidth <= bodyWidth) {
 		return { dialogsWidth, thirdWidth };
 	}
@@ -2690,9 +2697,9 @@ SessionController::ShrinkResult SessionController::shrinkDialogsAndThirdColumns(
 	if (thirdWidthNew < st::columnMinimalWidthThird) {
 		thirdWidthNew = st::columnMinimalWidthThird;
 		dialogsWidthNew = bodyWidth - thirdWidthNew - chatWidth;
-		Assert(!_hasDialogs || dialogsWidthNew >= st::columnMinimalWidthLeft);
-	} else if (_hasDialogs && dialogsWidthNew < st::columnMinimalWidthLeft) {
-		dialogsWidthNew = st::columnMinimalWidthLeft;
+		Assert(!_hasDialogs || dialogsWidthNew >= minimalDialogs);
+	} else if (_hasDialogs && dialogsWidthNew < minimalDialogs) {
+		dialogsWidthNew = minimalDialogs;
 		thirdWidthNew = bodyWidth - dialogsWidthNew - chatWidth;
 		Assert(thirdWidthNew >= st::columnMinimalWidthThird);
 	}

@@ -477,6 +477,9 @@ void PaintDialogDate(
 		TimeId date,
 		QRect &rectForName,
 		const PaintContext &context) {
+	if (context.width < style::ConvertScale(220)) {
+		return; // ShillGramm: narrow list, give the room to the name.
+	}
 	const auto resolved = fakeRow
 		? fakeRow->dateText(date, context.now)
 		: entry->chatListTimestampText(date, context.now);

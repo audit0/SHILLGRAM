@@ -7,6 +7,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "mainwidget.h"
 
+#include "shillgramm/shill_panel.h"
+
 #include "api/api_updates.h"
 #include "api/api_views.h"
 #include "data/components/scheduled_messages.h"
@@ -2623,6 +2625,9 @@ void MainWidget::createResizeArea(
 		FinishCallback &&finishCallback) {
 	area.create(this);
 	area->show();
+	if (&area == &_firstColumnResizeArea) {
+		Shill::SetupChatListResizeArea(area.data(), _controller);
+	}
 	area->addMoveLeftCallback(
 		std::forward<MoveCallback>(moveCallback));
 	area->addMoveFinishedCallback(
@@ -2638,9 +2643,13 @@ void MainWidget::ensureFirstColumnResizeAreaCreated() {
 	}
 	auto moveLeftCallback = [=](int globalLeft) {
 		const auto newWidth = globalLeft - mapToGlobal(QPoint(0, 0)).x();
-		const auto newRatio = (newWidth < st::columnMinimalWidthLeft / 2)
+		// ShillGramm: resize smoothly, collapse only at the very edge.
+		const auto newRatio = (newWidth
+				< _controller->dialogsSmallColumnWidth()
+					+ st::dialogsFilterSkip * 4)
 			? 0.
-			: float64(newWidth) / width();
+			: float64(std::min(newWidth, width() - st::columnMinimalWidthMain))
+				/ width();
 		const auto nochat = !_controller->mainSectionShown();
 		Core::App().settings().updateDialogsWidthRatio(newRatio, nochat);
 	};
