@@ -45,6 +45,7 @@ ShillGramm: Cmd+K command palette - chats, actions and settings in one place.
 #include "styles/style_window.h"
 
 #include <QtGui/QShortcut>
+#include <QtWidgets/QApplication>
 #include <QtWidgets/QTextEdit>
 
 namespace Shill {
@@ -74,6 +75,7 @@ public:
 		Fn<void()> close);
 
 	void setInnerFocus();
+	void appendQuery(const QString &text);
 
 protected:
 	void keyPressEvent(QKeyEvent *e) override;
@@ -169,6 +171,12 @@ void PaletteContent::init() {
 	}, lifetime());
 
 	rebuild(QString());
+}
+
+void PaletteContent::appendQuery(const QString &text) {
+	if (!text.isEmpty()) {
+		_select->setQuery(_select->getQuery() + text);
+	}
 }
 
 void PaletteContent::setInnerFocus() {
@@ -647,6 +655,7 @@ public:
 protected:
 	void paintEvent(QPaintEvent *e) override;
 	void mousePressEvent(QMouseEvent *e) override;
+	void keyPressEvent(QKeyEvent *e) override;
 
 private:
 	void updatePanelGeometry();
@@ -662,6 +671,8 @@ private:
 	QImage _blurred;
 	QSize _snapshotSize;
 	QPixmap _panelCache;
+	QPointer<QWidget> _previousFocus;
+	QString _typedWhileOpening;
 	Ui::Animations::Simple _animation;
 	float64 _progress = 0.;
 	bool _interactive = true;
@@ -680,6 +691,7 @@ SpotlightOverlay::SpotlightOverlay(
 	// One snapshot of the window and one blurred copy, both prepared up
 	// front. The overlay is opaque, so nothing under it repaints while
 	// it animates - each frame is just two ready images.
+	_previousFocus = QApplication::focusWidget();
 	const auto started = crl::now();
 	_snapshotSize = parent->size();
 	_snapshot = Ui::GrabWidgetToImage(parent).convertToFormat(
@@ -702,6 +714,7 @@ SpotlightOverlay::SpotlightOverlay(
 		).arg(crl::now() - started));
 
 	setAttribute(Qt::WA_OpaquePaintEvent);
+	setFocusPolicy(Qt::StrongFocus);
 	_panel->hide();
 	parent->sizeValue() | rpl::on_next([=](QSize size) {
 		if (size != _snapshotSize) {
@@ -775,6 +788,7 @@ void SpotlightOverlay::open() {
 	animateTo(1., 460, Spring, [=] {
 		_panelCache = QPixmap();
 		_panel->show();
+		_panel->appendQuery(base::take(_typedWhileOpening));
 		_panel->setInnerFocus();
 		update();
 	});
@@ -790,7 +804,11 @@ void SpotlightOverlay::close() {
 		_panelCache = Ui::GrabWidget(_panel.data());
 		_panel->hide();
 	}
-	_controller->widget()->setInnerFocus();
+	if (const auto previous = _previousFocus.data()) {
+		previous->setFocus();
+	} else if (const auto focused = QApplication::focusWidget()) {
+		focused->clearFocus();
+	}
 	animateTo(0., 180, anim::easeOutCirc, [=] {
 		deleteLater();
 	});
@@ -825,6 +843,18 @@ void SpotlightOverlay::paintEvent(QPaintEvent *e) {
 	p.scale(scale, scale);
 	p.translate(-target.center());
 	p.drawPixmap(target.topLeft(), _panelCache);
+}
+
+void SpotlightOverlay::keyPressEvent(QKeyEvent *e) {
+	// Keys that arrive while the panel is still sliding in.
+	if (e->key() == Qt::Key_Escape) {
+		close();
+	} else if (!_closing && !e->text().isEmpty()
+		&& e->text().at(0).isPrint()) {
+		_typedWhileOpening += e->text();
+	} else {
+		RpWidget::keyPressEvent(e);
+	}
 }
 
 void SpotlightOverlay::mousePressEvent(QMouseEvent *e) {
@@ -902,15 +932,35 @@ struct PullSession {
 	}
 };
 
-// Two-finger pull anywhere in the window that doesn't scroll by itself:
-// the search bar, the empty chat area, panel edges.
-class WindowPullFilter final : public QObject {
+[[nodiscard]] bool InsideScrollable(
+		not_null<QWidget*> widget,
+		not_null<QWidget*> until) {
+	for (auto w = widget.get(); w && w != until; w = w->parentWidget()) {
+		if (dynamic_cast<Ui::ElasticScroll*>(w)
+			|| w->inherits("QAbstractScrollArea")) {
+			return true;
+		}
+	}
+	return false;
+}
+
+// Two-finger trackpad pull, counted by real finger travel everywhere:
+// the chat list (when scrolled to the top), the search bar, the empty
+// chat area. Lists that scroll by themselves keep their own gesture.
+class PullFilter final : public QObject {
 public:
-	WindowPullFilter(
+	PullFilter(
 		not_null<QObject*> parent,
 		not_null<Window::SessionController*> controller)
 	: QObject(parent)
 	, _controller(controller) {
+	}
+
+	void setChatsList(
+			not_null<Ui::ElasticScroll*> scroll,
+			Fn<bool()> allowed) {
+		_chatsList = scroll.get();
+		_chatsListAllowed = std::move(allowed);
 	}
 
 protected:
@@ -919,44 +969,110 @@ protected:
 			return false;
 		}
 		const auto wheel = static_cast<QWheelEvent*>(e);
-		if (wheel->pixelDelta().isNull()
-			&& wheel->phase() == Qt::NoScrollPhase) {
-			return false; // A mouse wheel, not a trackpad gesture.
+		if (wheel->phase() == Qt::NoScrollPhase
+			|| wheel->phase() == Qt::ScrollMomentum) {
+			return false; // A mouse wheel or inertia, not the fingers.
 		}
-		switch (wheel->phase()) {
-		case Qt::ScrollBegin:
-			_pull = 0.;
-			_tracking = !Opened;
-			break;
-		case Qt::ScrollUpdate:
-			if (_tracking) {
-				_pull = std::max(_pull + wheel->pixelDelta().y(), 0.);
-				_session.progress(
-					_controller,
-					_pull / (st::shillSpotlightPull * 1.5));
-				return true;
-			}
-			break;
-		case Qt::ScrollEnd:
-			if (_tracking) {
-				_tracking = false;
-				_session.finish();
-				return true;
-			}
-			break;
-		default:
-			break;
+		// The same event visits every parent on its way up.
+		const auto key = std::make_tuple(
+			quint64(wheel->timestamp()),
+			int(wheel->phase()),
+			wheel->pixelDelta().x(),
+			wheel->pixelDelta().y());
+		if (key == _lastKey) {
+			return _lastResult;
 		}
-		return false;
+		_lastKey = key;
+		_lastResult = handle(object, wheel);
+		return _lastResult;
 	}
 
 private:
+	[[nodiscard]] bool canStart(not_null<QWidget*> widget) const {
+		const auto body = _controller->widget()->bodyWidget();
+		if (Opened || (widget != body && !body->isAncestorOf(widget))) {
+			return false;
+		}
+		const auto list = _chatsList.data();
+		if (list && (list == widget || list->isAncestorOf(widget))) {
+			return (list->scrollTop() == 0)
+				&& (!_chatsListAllowed || _chatsListAllowed());
+		}
+		return !InsideScrollable(widget, body);
+	}
+
+	bool handle(QObject *object, not_null<QWheelEvent*> wheel) {
+		switch (wheel->phase()) {
+		case Qt::ScrollBegin: {
+			const auto widget = qobject_cast<QWidget*>(object);
+			_pull = 0.;
+			_consuming = false;
+			_tracking = widget && canStart(widget);
+			return false;
+		}
+		case Qt::ScrollUpdate: {
+			if (!_tracking) {
+				return false;
+			}
+			_pull += wheel->pixelDelta().y();
+			if (!_consuming && _pull <= 0.) {
+				// Scrolling content the usual way, not pulling.
+				_tracking = false;
+				return false;
+			}
+			_consuming = true;
+			_pull = std::max(_pull, 0.);
+			_session.progress(
+				_controller,
+				_pull / (st::shillSpotlightPull * 1.5));
+			return true;
+		}
+		case Qt::ScrollEnd: {
+			const auto consumed = _consuming;
+			if (consumed) {
+				_session.finish();
+			}
+			_tracking = _consuming = false;
+			return consumed;
+		}
+		default:
+			return false;
+		}
+	}
+
 	const not_null<Window::SessionController*> _controller;
+	QPointer<Ui::ElasticScroll> _chatsList;
+	Fn<bool()> _chatsListAllowed;
 	PullSession _session;
 	float64 _pull = 0.;
+	std::tuple<quint64, int, int, int> _lastKey;
+	bool _lastResult = false;
 	bool _tracking = false;
+	bool _consuming = false;
 
 };
+
+base::flat_map<
+	not_null<Window::SessionController*>,
+	QPointer<PullFilter>> PullFilters;
+
+[[nodiscard]] PullFilter *PullFilterFor(
+		not_null<Window::SessionController*> controller) {
+	const auto i = PullFilters.find(controller);
+	if (i != end(PullFilters) && i->second) {
+		return i->second.data();
+	}
+	const auto filter = new PullFilter(
+		controller->widget()->bodyWidget(),
+		controller);
+	qApp->installEventFilter(filter);
+	PullFilters[controller] = filter;
+	controller->lifetime().add([=, weak = QPointer<PullFilter>(filter)] {
+		PullFilters.remove(controller);
+		delete weak.data();
+	});
+	return filter;
+}
 
 } // namespace
 
@@ -964,38 +1080,12 @@ void SetupPullToSearch(
 		not_null<Ui::ElasticScroll*> scroll,
 		not_null<Window::SessionController*> controller,
 		Fn<bool()> allowed) {
-	const auto session = scroll->lifetime().make_state<PullSession>();
-	rpl::combine(
-		scroll->positionValue(),
-		scroll->movementValue()
-	) | rpl::on_next([=](
-			Ui::ElasticScrollPosition position,
-			Ui::ElasticScrollMovement movement) {
-		const auto pulled = std::max(-position.overscroll, 0);
-		if (movement == Ui::ElasticScrollMovement::Progress) {
-			if (!session->overlay && (!pulled || !allowed())) {
-				return;
-			}
-			session->progress(
-				controller,
-				pulled / float64(st::shillSpotlightPull));
-		} else if (session->overlay) {
-			// Fingers lifted: finish like Spotlight, or slide back.
-			session->finish();
-		}
-	}, scroll->lifetime());
+	PullFilterFor(controller)->setChatsList(scroll, std::move(allowed));
 }
 
 void SetupWindowPullToSearch(
 		not_null<Window::SessionController*> controller) {
-	const auto body = controller->widget()->bodyWidget();
-	const auto filter = new WindowPullFilter(body, controller);
-	body->installEventFilter(filter);
-	controller->lifetime().add([=, weak = QPointer<QObject>(filter)] {
-		if (const auto strong = weak.data()) {
-			delete strong;
-		}
-	});
+	PullFilterFor(controller);
 }
 
 bool HandlePaletteShortcutEvent(
