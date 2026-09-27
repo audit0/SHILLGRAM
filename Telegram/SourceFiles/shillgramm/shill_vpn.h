@@ -14,6 +14,7 @@ nothing of them is written to the log.
 
 #include "base/timer.h"
 
+#include <QtCore/QJsonObject>
 #include <QtCore/QPointer>
 
 class QNetworkAccessManager;
@@ -66,6 +67,15 @@ public:
 	void refresh();
 	void forget();
 
+	// First launch: three free days for this device from shillvpn.site
+	// (one per device, the site decides). done("") once the tunnel runs
+	// on the new subscription.
+	void startTrial(Fn<void(QString error)> done);
+	// The access came from the app's own trial: renewing goes to its
+	// cabinet on the site, not to the Telegram account's Mini App.
+	[[nodiscard]] bool hasCabinet() const;
+	[[nodiscard]] QString cabinetUrl() const;
+
 	// Pages on the site for this subscription: connect another device
 	// (INCY, Happ...) and renew.
 	[[nodiscard]] QString connectPageUrl() const;
@@ -83,6 +93,11 @@ private:
 
 	void fetch(Fn<void(QString error)> done);
 	bool applyBody(const QByteArray &body);
+	// POST to shillvpn.site/app/api; done(nullopt) when out of reach.
+	void api(
+		QJsonObject request,
+		Fn<void(std::optional<QJsonObject> reply)> done);
+	void waitTrialReady(int attempt, Fn<void(QString error)> done);
 	void launch();
 	void waitForPort(int attempt);
 	void coreFinished();
@@ -103,8 +118,12 @@ private:
 	TimeId _expiresAt = 0;
 	bool _enabled = false;
 
+	QString _cabinetKey; // Site cabinet of the app's own trial.
+	bool _trialBusy = false;
+
 	QPointer<QProcess> _core;
 	QNetworkAccessManager *_network = nullptr;
+	QNetworkAccessManager *_apiNetwork = nullptr;
 	int _port = 0;
 	QString _user;
 	QString _password;

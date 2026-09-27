@@ -11,7 +11,7 @@ inline constexpr auto kVersionStr = "1.0";
 
 // The name people see (owner, 27.09.2026). AppName and AppFile keep
 // "ShillGramm": the data folder and the bundle are named after them, a new
-// name there would log everyone out. Links stay @shillgramm.
+// name there would log everyone out. The app bundle is SHILLGRAM.app.
 inline constexpr auto kDisplayName = "SHILLGRAM";
 inline constexpr auto kDisplayNameDesktop = "SHILLGRAM Desktop";
 

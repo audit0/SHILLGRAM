@@ -6,6 +6,7 @@ For license and copyright information please follow this link:
 https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "settings/sections/settings_notifications.h"
+#include "shillgramm/shill_version.h"
 
 #include "settings/settings_common_session.h"
 
@@ -763,7 +764,7 @@ NotifyPreview::NotifyPreview(bool nameShown, bool previewShown)
 	_name.setText(
 		st::defaultSubsectionTitle.style,
 		tr::lng_notification_preview_title(tr::now));
-	_title.setText(st::defaultSubsectionTitle.style, AppName.utf16());
+	_title.setText(st::defaultSubsectionTitle.style, QString::fromLatin1(Shill::kDisplayNameDesktop));
 
 	_text.setText(
 		st::boxTextStyle,

@@ -18,6 +18,7 @@ ShillGramm: SHILLVPN built into the app.
 #include "ui/widgets/fields/input_field.h"
 #include "ui/widgets/labels.h"
 #include "ui/basic_click_handlers.h"
+#include "ui/text/text_utilities.h"
 #include "window/window_controller.h"
 #include "window/window_session_controller.h"
 #include "styles/style_boxes.h"
@@ -25,6 +26,10 @@ ShillGramm: SHILLVPN built into the app.
 #include "styles/style_settings.h"
 
 #include <QtCore/QCoreApplication>
+#include <QtCore/QCryptographicHash>
+#include <QtCore/QMessageAuthenticationCode>
+#include <QtCore/QSysInfo>
+#include <QtCore/QTimer>
 #include <QtCore/QDir>
 #include <QtCore/QFile>
 #include <QtCore/QFileInfo>
@@ -55,6 +60,8 @@ constexpr auto kPortAttempts = 50; // x 150 ms: the core has 7.5 s to listen.
 constexpr auto kMaxRestarts = 5;
 constexpr auto kRefreshInterval = crl::time(6 * 3600 * 1000);
 constexpr auto kFetchTimeout = 15 * 1000;
+constexpr auto kTrialPolls = 30; // x 2 s: the site's worker issues the trial.
+constexpr auto kTermsUrl = "https://shillvpn.site/legal/terms";
 
 const auto kTokenRe = QRegularExpression(
 	u"(?:^|/)([0-9a-f]{24}\\.[0-9a-f]{64})(?:$|[/?#])"_q);
@@ -96,6 +103,51 @@ const auto kTokenRe = QRegularExpression(
 		? u"дня"_q
 		: u"дней"_q;
 	return QString::number(days) + ' ' + word;
+}
+
+// One trial per device: the site keeps only a hash of this value, and the
+// value itself is a keyed hash of the hardware id, never the id.
+[[nodiscard]] QString DeviceId() {
+	auto id = QSysInfo::machineUniqueId();
+	if (id.isEmpty()) {
+		if (const auto saved = KeychainRead(u"device"_q)) {
+			id = *saved;
+		} else {
+			auto *generator = QRandomGenerator::system();
+			id = QByteArray::number(generator->generate64(), 16)
+				+ QByteArray::number(generator->generate64(), 16);
+			KeychainWrite(u"device"_q, id);
+		}
+	}
+	return QString::fromLatin1(QMessageAuthenticationCode::hash(
+		id,
+		QByteArray("SHILLGRAM app trial v1"),
+		QCryptographicHash::Sha256).toHex());
+}
+
+[[nodiscard]] QString TrialError(const QString &code) {
+	if (code == u"trial_used"_q) {
+		return Tr(
+			"This device has already had its free days. Buy SHILLVPN on "
+			"the site or paste your subscription link.",
+			"На этом устройстве бесплатные дни уже были. Купите SHILLVPN "
+			"на сайте или вставьте ссылку подписки.");
+	} else if (code == u"busy"_q) {
+		return Tr(
+			"Too many requests right now. Try again in a few minutes.",
+			"Сейчас много запросов. Попробуйте через несколько минут.");
+	} else if (code == u"closed"_q) {
+		return Tr(
+			"Free days are not given out right now. Buy SHILLVPN on the "
+			"site or paste your subscription link.",
+			"Бесплатные дни сейчас не выдаются. Купите SHILLVPN на сайте "
+			"или вставьте ссылку подписки.");
+	}
+	return Tr(
+		"Free days in the app are coming soon. For now take 3 days in "
+		"@SHILLVPN_bot and paste the subscription link here.",
+		"Бесплатные дни в приложении скоро появятся. Пока возьмите "
+		"3 дня в @SHILLVPN_bot и вставьте ссылку подписки сюда.");
 }
 
 [[nodiscard]] bool IsOurProxy(const MTP::ProxyData &proxy) {
@@ -375,6 +427,115 @@ QString Vpn::subscriptionUrl() const {
 		? (u"https://"_q + url.host())
 		: QString::fromLatin1(kSite);
 	return origin + u"/sub/"_q + _token;
+}
+
+bool Vpn::hasCabinet() const {
+	return !_cabinetKey.isEmpty();
+}
+
+QString Vpn::cabinetUrl() const {
+	// The key goes in the fragment: it stays in the browser.
+	return QString::fromLatin1(kSite) + u"/app/buy/#k="_q + _cabinetKey;
+}
+
+void Vpn::api(
+		QJsonObject request,
+		Fn<void(std::optional<QJsonObject>)> done) {
+	if (!_apiNetwork) {
+		_apiNetwork = new QNetworkAccessManager();
+		_apiNetwork->setProxy(QNetworkProxy(QNetworkProxy::NoProxy));
+	}
+	auto http = QNetworkRequest(
+		QUrl(QString::fromLatin1(kSite) + u"/app/api"_q));
+	http.setHeader(QNetworkRequest::ContentTypeHeader, u"application/json"_q);
+	http.setHeader(QNetworkRequest::UserAgentHeader, u"SHILLGRAM/1.0"_q);
+	http.setTransferTimeout(kFetchTimeout);
+	const auto reply = _apiNetwork->post(
+		http,
+		QJsonDocument(request).toJson(QJsonDocument::Compact));
+	QObject::connect(reply, &QNetworkReply::finished, [=] {
+		reply->deleteLater();
+		const auto document = QJsonDocument::fromJson(reply->readAll());
+		if (document.isObject()) {
+			done(document.object());
+		} else {
+			done(std::nullopt);
+		}
+	});
+}
+
+void Vpn::startTrial(Fn<void(QString)> done) {
+	if (_trialBusy) {
+		return;
+	}
+	_trialBusy = true;
+	const auto finish = [=](QString error) {
+		_trialBusy = false;
+		done(error);
+	};
+	if (!_cabinetKey.isEmpty()) {
+		// Taken before, the app closed while the site prepared it.
+		waitTrialReady(0, finish);
+		return;
+	}
+	api(QJsonObject{
+		{ u"action"_q, u"shop_app_trial"_q },
+		{ u"device"_q, DeviceId() },
+		{ u"accept_terms"_q, true },
+		{ u"lang"_q, Lang::GetInstance().id().startsWith(u"ru"_q)
+			? u"ru"_q
+			: u"en"_q },
+	}, [=](std::optional<QJsonObject> reply) {
+		if (!reply) {
+			finish(Tr(
+				"shillvpn.site does not open from this network. Buy "
+				"SHILLVPN from another network or from your phone and "
+				"paste the subscription link here.",
+				"shillvpn.site не открывается из этой сети. Купите "
+				"SHILLVPN из другой сети или с телефона и вставьте "
+				"ссылку подписки сюда."));
+			return;
+		}
+		const auto key = reply->value(u"key"_q).toString();
+		if (!reply->value(u"ok"_q).toBool() || key.isEmpty()) {
+			finish(TrialError(reply->value(u"error"_q).toString()));
+			return;
+		}
+		_cabinetKey = key;
+		KeychainWrite(u"cabinet"_q, key.toUtf8());
+		waitTrialReady(0, finish);
+	});
+}
+
+void Vpn::waitTrialReady(int attempt, Fn<void(QString)> done) {
+	api(QJsonObject{
+		{ u"action"_q, u"shop_app_status"_q },
+		{ u"key"_q, _cabinetKey },
+	}, [=](std::optional<QJsonObject> reply) {
+		if (reply && reply->value(u"ok"_q).toBool()) {
+			const auto url = reply->value(u"subscription_url"_q).toString();
+			if (reply->value(u"ready"_q).toBool() && TokenFromLink(url)) {
+				setLink(url, done);
+				return;
+			}
+		} else if (reply
+			&& reply->value(u"error"_q).toString() == u"bad_key"_q) {
+			_cabinetKey = QString();
+			KeychainRemove(u"cabinet"_q);
+			done(TrialError(QString()));
+			return;
+		}
+		if (attempt + 1 >= kTrialPolls) {
+			done(Tr(
+				"The free days are still being prepared. Try again in "
+				"a minute.",
+				"Бесплатные дни ещё готовятся. Попробуйте через минуту."));
+			return;
+		}
+		QTimer::singleShot(2000, _apiNetwork, [=] {
+			waitTrialReady(attempt + 1, done);
+		});
+	});
 }
 
 QString Vpn::connectPageUrl() const {
@@ -815,6 +976,9 @@ void Vpn::saveSecrets() const {
 }
 
 void Vpn::loadSecrets() {
+	if (const auto key = KeychainRead(u"cabinet"_q)) {
+		_cabinetKey = QString::fromUtf8(*key);
+	}
 	const auto link = KeychainRead(u"link"_q);
 	if (!link) {
 		return;
@@ -879,14 +1043,63 @@ void VpnBox(not_null<Ui::GenericBox*> box) {
 		box->addRow(object_ptr<Ui::FlatLabel>(
 			box,
 			rpl::single(Tr(
-				"Telegram in SHILLGRAM works on any network through "
-				"SHILLVPN. Paste your subscription link from @SHILLVPN_bot "
-				"or from the cabinet on shillvpn.site.",
-				"Telegram в SHILLGRAM работает в любой сети через "
-				"SHILLVPN. Вставьте ссылку подписки из @SHILLVPN_bot "
-				"или из личного кабинета на shillvpn.site.")),
+				"If Telegram does not open for you, connect SHILLVPN. One "
+				"subscription works here, on your phone and on your "
+				"computer, and Telegram in SHILLGRAM works right away.",
+				"Если Telegram у вас не открывается, подключите SHILLVPN. "
+				"Одна подписка работает здесь, на телефоне и на компьютере, "
+				"а Telegram в SHILLGRAM заработает сразу.")),
 			st::boxLabel));
 		box->addSkip(st::boxLittleSkip);
+
+		const auto trial = box->addRow(object_ptr<Ui::RoundButton>(
+			box,
+			rpl::single(Tr("Get 3 days free", "Получить 3 дня бесплатно")),
+			st::defaultActiveButton));
+		trial->setTextTransform(Ui::RoundButtonTextTransform::NoTransform);
+		trial->setFullWidth(st::boxWideWidth
+			- st::boxRowPadding.left()
+			- st::boxRowPadding.right());
+		const auto terms = box->addRow(object_ptr<Ui::FlatLabel>(
+			box,
+			rpl::single(TextWithEntities{ Tr(
+				"One trial per device. By taking it you accept the ",
+				"Одна проба на устройство. Получая её, вы принимаете ") }
+				.append(Ui::Text::Link(
+					Tr("terms", "условия"),
+					QString::fromLatin1(kTermsUrl)))
+				.append(u"."_q)),
+			st::boxDividerLabel));
+		terms->setLinksTrusted();
+		trial->setClickedCallback([=] {
+			trial->setText(rpl::single(Tr("Connecting…", "Подключаю…")));
+			const auto weak = base::make_weak(box);
+			Vpn::Instance().startTrial([=](QString error) {
+				if (const auto strong = weak.get()) {
+					if (error.isEmpty()) {
+						strong->closeBox();
+					} else {
+						trial->setText(rpl::single(Tr(
+							"Get 3 days free",
+							"Получить 3 дня бесплатно")));
+						strong->showToast(error);
+					}
+				}
+			});
+		});
+		box->addSkip(st::boxLittleSkip);
+		addLink(
+			rpl::single(Tr("Buy SHILLVPN", "Купить SHILLVPN")),
+			[] { File::OpenUrl(QString::fromLatin1(kSite) + u"/app/buy/"_q); });
+		box->addSkip(st::boxLittleSkip);
+		box->addRow(object_ptr<Ui::FlatLabel>(
+			box,
+			rpl::single(Tr(
+				"Already have a subscription? Paste its link from "
+				"@SHILLVPN_bot or from the cabinet on shillvpn.site.",
+				"Уже есть подписка? Вставьте ссылку из @SHILLVPN_bot "
+				"или из личного кабинета на shillvpn.site.")),
+			st::boxDividerLabel));
 		const auto field = box->addRow(object_ptr<Ui::InputField>(
 			box,
 			st::defaultInputField,
@@ -894,11 +1107,6 @@ void VpnBox(not_null<Ui::GenericBox*> box) {
 			rpl::single(Tr("Subscription link", "Ссылка подписки"))));
 		box->setFocusCallback([=] { field->setFocusFast(); });
 		box->addSkip(st::boxLittleSkip);
-		addLink(
-			rpl::single(Tr(
-				"Buy or renew on shillvpn.site",
-				"Купить или продлить на shillvpn.site")),
-			[] { File::OpenUrl(QString::fromLatin1(kSite) + u"/app/buy/"_q); });
 
 		const auto busy = box->lifetime().make_state<bool>(false);
 		const auto submit = [=] {
@@ -979,6 +1187,11 @@ void ShowVpnBox(not_null<Window::SessionController*> controller) {
 }
 
 void OpenVpnRenew(Window::SessionController *controller) {
+	if (Vpn::Instance().hasCabinet()) {
+		// The app's own trial is a site account, not the Telegram one.
+		File::OpenUrl(Vpn::Instance().cabinetUrl());
+		return;
+	}
 	if (!controller) {
 		if (const auto window = Core::App().activePrimaryWindow()) {
 			controller = window->sessionController();

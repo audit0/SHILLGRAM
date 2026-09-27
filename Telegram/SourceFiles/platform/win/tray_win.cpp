@@ -6,6 +6,7 @@ For license and copyright information please follow this link:
 https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "platform/win/tray_win.h"
+#include "shillgramm/shill_version.h"
 
 #include "base/invoke_queued.h"
 #include "base/qt_signal_producer.h"
@@ -191,7 +192,7 @@ void Tray::createIcon() {
 		}
 		_icon->init();
 		updateIcon();
-		_icon->updateToolTip(AppName.utf16());
+		_icon->updateToolTip(QString::fromLatin1(Shill::kDisplayName));
 
 		using Reason = QPlatformSystemTrayIcon::ActivationReason;
 		base::qt_signal_producer(
@@ -292,7 +293,7 @@ void Tray::addAction(rpl::producer<QString> text, Fn<void()> &&callback) {
 void Tray::showTrayMessage() const {
 	if (!cSeenTrayTooltip() && _icon) {
 		_icon->showMessage(
-			AppName.utf16(),
+			QString::fromLatin1(Shill::kDisplayName),
 			tr::lng_tray_icon_text(tr::now),
 			QIcon(),
 			QPlatformSystemTrayIcon::Information,
