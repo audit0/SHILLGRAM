@@ -138,9 +138,16 @@ protected:
 			int(clip.y() * ratio),
 			int(clip.width() * ratio),
 			int(clip.height() * ratio));
-		p.drawImage(clip, _snapshot, source);
-		p.setOpacity(_animation.value(_shown ? 1. : 0.));
-		p.drawImage(clip, _blurred, source);
+		// Crossfade: the window is translucent glass, layers must not add.
+		const auto blur = _animation.value(_shown ? 1. : 0.);
+		if (blur < 1.) {
+			p.setOpacity(1. - blur);
+			p.drawImage(clip, _snapshot, source);
+		}
+		if (blur > 0.) {
+			p.setOpacity(blur);
+			p.drawImage(clip, _blurred, source);
+		}
 	}
 
 private:

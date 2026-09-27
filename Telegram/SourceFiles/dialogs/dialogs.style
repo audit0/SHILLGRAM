@@ -936,7 +936,7 @@ shillPaletteBox: Box(defaultBox) {
 
 // ShillGramm: Spotlight-style quick actions.
 shillSpotlightSelect: MultiSelect(defaultMultiSelect) {
-	bg: boxBg;
+	bg: transparent;
 }
 shillSpotlightRadius: 14px;
 shillSpotlightMargin: 10px;

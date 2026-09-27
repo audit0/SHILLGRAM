@@ -207,8 +207,10 @@ void PaletteContent::paintEvent(QPaintEvent *e) {
 	auto p = QPainter(this);
 	auto hq = PainterHighQualityEnabler(p);
 	const auto radius = st::shillSpotlightRadius;
+	auto bg = st::boxBg->c;
+	bg.setAlpha(Window::Theme::IsNightMode() ? 0xa6 : 0xbf);
 	p.setPen(QPen(st::shadowFg, 1.));
-	p.setBrush(st::boxBg);
+	p.setBrush(bg);
 	p.drawRoundedRect(
 		QRectF(rect()).marginsRemoved({ 0.5, 0.5, 0.5, 0.5 }),
 		radius,
@@ -825,15 +827,22 @@ void SpotlightOverlay::close(bool animated) {
 void SpotlightOverlay::paintEvent(QPaintEvent *e) {
 	auto p = QPainter(this);
 	const auto clip = e->rect();
+	// Crossfade, not a stack: the window itself is translucent glass, so
+	// two layers of it would add up into uneven dark patches.
 	const auto backdrop = std::clamp(_progress, 0., 1.);
-	p.drawImage(clip, _snapshot, ImageRect(_snapshot, clip));
-	p.setOpacity(backdrop);
-	p.drawImage(clip, _blurred, ImageRect(_blurred, clip));
-	p.fillRect(
-		clip,
-		Window::Theme::IsNightMode()
-			? QColor(0, 0, 0, 90)
-			: QColor(255, 255, 255, 60));
+	if (backdrop < 1.) {
+		p.setOpacity(1. - backdrop);
+		p.drawImage(clip, _snapshot, ImageRect(_snapshot, clip));
+	}
+	if (backdrop > 0.) {
+		p.setOpacity(backdrop);
+		p.drawImage(clip, _blurred, ImageRect(_blurred, clip));
+		p.fillRect(
+			clip,
+			Window::Theme::IsNightMode()
+				? QColor(0, 0, 0, 60)
+				: QColor(255, 255, 255, 70));
+	}
 	p.setOpacity(1.);
 	if (!_panel->isHidden()) {
 		return;
