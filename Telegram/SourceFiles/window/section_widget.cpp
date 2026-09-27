@@ -340,6 +340,77 @@ QPixmap SectionWidget::grabForShowAnimation(
 	return Ui::GrabWidget(this);
 }
 
+// ShillGramm (SHILLVPN style): a faint dot grid over the chat and a soft
+// mint glow at the top, like the brand's posters and landing page.
+static void PaintBrandDecor(QPainter &p, QSize fill, QRect clip) {
+	const auto night = Window::Theme::IsNightMode();
+	const auto ratio = style::DevicePixelRatio();
+	const auto step = style::ConvertScale(30);
+
+	struct Tile {
+		QPixmap pixmap;
+		int step = 0;
+		int ratio = 0;
+		bool night = false;
+	};
+	static auto tile = Tile();
+	if (tile.pixmap.isNull()
+		|| tile.step != step
+		|| tile.ratio != ratio
+		|| tile.night != night) {
+		auto image = QImage(
+			QSize(step, step) * ratio,
+			QImage::Format_ARGB32_Premultiplied);
+		image.fill(Qt::transparent);
+		image.setDevicePixelRatio(ratio);
+		{
+			auto q = QPainter(&image);
+			auto hq = PainterHighQualityEnabler(q);
+			q.setPen(Qt::NoPen);
+			q.setBrush(night
+				? QColor(232, 245, 239, 26)
+				: QColor(11, 18, 16, 22));
+			const auto radius = style::ConvertScaleExact(1.2);
+			q.drawEllipse(
+				QPointF(step / 2., step / 2.),
+				radius,
+				radius);
+		}
+		tile = Tile{
+			.pixmap = QPixmap::fromImage(std::move(image)),
+			.step = step,
+			.ratio = ratio,
+			.night = night,
+		};
+	}
+	p.fillRect(clip, QBrush(tile.pixmap));
+
+	// Glow: an ellipse (520x320 on the landing) centered above the top edge.
+	const auto width = style::ConvertScale(520);
+	const auto height = style::ConvertScale(320);
+	const auto center = QPointF(fill.width() / 2., -style::ConvertScale(90));
+	const auto glow = QRectF(
+		center.x() - width,
+		center.y() - height,
+		width * 2.,
+		height * 2.);
+	if (!glow.intersects(QRectF(clip))) {
+		return;
+	}
+	auto gradient = QRadialGradient(QPointF(0., 0.), 1.);
+	gradient.setColorAt(0., QColor(25, 230, 162, night ? 46 : 30));
+	gradient.setColorAt(0.55, QColor(25, 230, 162, night ? 14 : 9));
+	gradient.setColorAt(1., QColor(25, 230, 162, 0));
+	p.save();
+	p.setClipRect(clip);
+	p.translate(center);
+	p.scale(width, height);
+	p.setPen(Qt::NoPen);
+	p.setBrush(gradient);
+	p.drawEllipse(QPointF(0., 0.), 1., 1.);
+	p.restore();
+}
+
 void SectionWidget::PaintBackground(
 		not_null<Window::SessionController*> controller,
 		not_null<Ui::ChatTheme*> theme,
@@ -405,6 +476,7 @@ void SectionWidget::PaintBackground(
 		color.setAlpha(Window::Theme::IsNightMode() ? 0x4d : 0x80);
 #endif // Q_OS_MAC
 		p.fillRect(clip, color);
+		PaintBrandDecor(p, fill, clip);
 		return;
 	}
 	const auto &gradient = background.gradientForFill;
