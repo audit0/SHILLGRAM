@@ -67,22 +67,28 @@ KEEP_COLOUR = ('callAnswer', 'callHangup', 'callArrowMissed')
 # rendered: cool neutrals, orange "hot" counters, green only for links/focus.
 # Apple system neutrals with the agents panel's restraint: graphite for
 # emphasis, one quiet green for links, no loud colours.
-DAY = dict(bg='#dcdce2', panel='#e9e9ed', side='#e2e2e6', soft='#dfdfe4',
-           pill='#d2d2d9', line='#cfcfd6', lineSoft='#dadae0', ink='#1d1d1f',
-           inkOver='#000000', muted='#636368', faint='#7c7c82', accent='#1d6b48',
-           accentSoft='#dde9e2', sel='#d5d5dc', selLine='#c5c5cd', hot='#3a3a3c',
-           note='#efe8dc', noteLine='#dfd0b6', ok='#248a3d', warn='#b25000', bad='#d70015',
-           outBg='#2c2c2e', outSel='#3a3a3c', outFg='#f5f5f7', outSub='#aeaeb2',
-           outLink='#8fd3ad', inBg='#f0f0f3', inSel='#e0e0e5',
-           userpics=['#a3a8b2', '#959ba7', '#878e9b', '#aab0b9'])
-NIGHT = dict(bg='#121214', panel='#1c1c1e', side='#161618', soft='#2c2c2e',
-             pill='#3a3a3c', line='#38383a', lineSoft='#2c2c2e', ink='#f5f5f7',
-             inkOver='#ffffff', muted='#98989d', faint='#8e8e93', accent='#5fc38e',
-             accentSoft='#1d3329', sel='#2c2c2e', selLine='#3a3a3c', hot='#e5e5ea',
-             note='#2a261e', noteLine='#4a4128', ok='#30d158', warn='#ff9f0a', bad='#ff453a',
-             outBg='#e5e5ea', outSel='#d1d1d6', outFg='#1d1d1f', outSub='#6e6e73',
-             outLink='#1d6b48', inBg='#1c1c1e', inSel='#2c2c2e',
-             userpics=['#5a5f69', '#4e535d', '#63686f', '#44484f'])
+# SHILLVPN brand (VPN сервис в tg SHILLVPN, outputs/brand/posters/src/base.css):
+# near-black ground #030404, mint #19e6a2 only as neon (links, numbers, thin
+# outlines, glow), light mint text #e8f5ef, muted #93aca2, dark glass cards.
+# The day theme is the same brand on a light mint-gray ground.
+DAY = dict(bg='#dfe7e4', panel='#ebf1ef', side='#e3eae7', soft='#dde6e2',
+           pill='#d0dcd7', line='#cdd9d4', lineSoft='#d8e2de', ink='#0b1210',
+           inkOver='#030404', muted='#5d7169', faint='#768982', accent='#0b9e6f',
+           accentSoft='#d6f2e7', sel='#d6e3de', selLine='#b9d6ca', hot='#19e6a2',
+           note='#e3f3ec', noteLine='#b9e3d1', ok='#0b9e6f', warn='#b26a00', bad='#d93a2f',
+           outBg='#0b1210', outSel='#16211d', outFg='#e8f5ef', outSub='#93aca2',
+           outLink='#19e6a2', inBg='#f7faf9', inSel='#e6eeeb',
+           btnBg='#0b1210', btnFg='#19e6a2', badgeFg='#030404',
+           userpics=['#a9c4ba', '#9bb8ad', '#b3c9c1', '#8fada2'])
+NIGHT = dict(bg='#030404', panel='#070808', side='#050606', soft='#0f1513',
+             pill='#18211e', line='#1a2320', lineSoft='#111816', ink='#e8f5ef',
+             inkOver='#ffffff', muted='#93aca2', faint='#7a918a', accent='#19e6a2',
+             accentSoft='#0c2a20', sel='#0e1a16', selLine='#153a2e', hot='#19e6a2',
+             note='#0c1a15', noteLine='#1c4a3a', ok='#19e6a2', warn='#ffcf7a', bad='#ff8a80',
+             outBg='#0c2019', outSel='#113028', outFg='#e8f5ef', outSub='#8fbfae',
+             outLink='#8ff0cf', inBg='#0c1110', inSel='#131b18',
+             btnBg='#0f2a21', btnFg='#19e6a2', badgeFg='#030404',
+             userpics=['#1a2a24', '#1e2d33', '#24302b', '#1b2320'])
 
 
 def warm(l, a='', dark=False):
@@ -147,18 +153,19 @@ swap_out(nite, day_src, True)
 
 
 def common(P, dark):
-    btn = P['ink']
-    btnFg = '#1d1d1f' if dark else '#ffffff'
-    badgeFg = '#1d1d1f' if dark else '#ffffff'
+    # Buttons follow the brand: dark plate, mint label (no large mint fills).
+    btn = P['btnBg']
+    btnFg = P['btnFg']
+    badgeFg = P['badgeFg']
     return {
         'windowBg': P['panel'], 'windowFg': P['ink'], 'windowBgOver': P['side'],
         'windowBgRipple': P['pill'], 'windowSubTextFg': P['muted'],
         'windowSubTextFgOver': P['faint'], 'windowBoldFg': P['ink'],
-        'windowBgActive': btn, 'windowFgActive': btnFg,
+        'windowBgActive': P['accent'], 'windowFgActive': P['badgeFg'],
         'windowActiveTextFg': P['ink'], 'windowShadowFgFallback': P['line'],
-        'activeButtonBg': btn, 'activeButtonBgOver': P['inkOver'],
-        'activeButtonBgRipple': P['muted'], 'activeButtonFg': btnFg,
-        'activeButtonFgOver': btnFg, 'activeLineFg': P['ink'],
+        'activeButtonBg': btn, 'activeButtonBgOver': P['selLine'],
+        'activeButtonBgRipple': P['accentSoft'], 'activeButtonFg': btnFg,
+        'activeButtonFgOver': btnFg, 'activeLineFg': P['accent'],
         'lightButtonBg': P['panel'], 'lightButtonBgOver': P['soft'],
         'lightButtonBgRipple': P['pill'], 'lightButtonFg': P['ink'],
         'lightButtonFgOver': P['ink'],
@@ -183,8 +190,8 @@ def common(P, dark):
         'dialogsUnreadBgMutedActive': P['faint'],
         'dialogsSentIconFg': P['accent'], 'dialogsSentIconFgActive': P['accent'],
         'dialogsSentIconFgOver': P['accent'],
-        'dialogsVerifiedIconBg': P['ink'], 'dialogsVerifiedIconBgActive': P['ink'],
-        'dialogsVerifiedIconFgActive': P['panel'],
+        'dialogsVerifiedIconBg': P['accent'], 'dialogsVerifiedIconBgActive': P['accent'],
+        'dialogsVerifiedIconFgActive': P['badgeFg'],
         'dialogsChatIconFgActive': P['ink'], 'dialogsOnlineBadgeFg': P['ok'],
         'dialogsMenuIconFg': P['muted'],
         'sideBarBg': P['side'], 'sideBarBgActive': P['pill'], 'sideBarBgRipple': P['pill'],
@@ -196,8 +203,8 @@ def common(P, dark):
         'shadowFg': '#0000001a' if not dark else '#00000055',
         'historyComposeAreaBg': P['inBg'], 'historyComposeAreaFg': P['ink'],
         'historyComposeAreaFgService': P['muted'], 'historyComposeIconFg': P['faint'],
-        'historyComposeIconFgOver': P['ink'], 'historySendIconFg': P['ink'],
-        'historySendIconFgOver': P['inkOver'], 'historyComposeButtonBg': P['panel'],
+        'historyComposeIconFgOver': P['ink'], 'historySendIconFg': P['accent'],
+        'historySendIconFgOver': P['accent'], 'historyComposeButtonBg': P['panel'],
         'historyComposeButtonBgOver': P['soft'], 'historyReplyBg': P['bg'],
         'historyReplyIconFg': P['accent'], 'topBarBg': P['panel'],
         'placeholderFg': P['faint'], 'placeholderFgActive': P['faint'],
@@ -230,13 +237,13 @@ nite.update(common(NIGHT, True))
 
 # Readability: bot buttons and service pills get graphite text on a
 # clearly visible plate instead of gray on pale gray.
-day.update({'msgServiceBg': '#f0f0f3', 'msgServiceFg': '#1d1d1f',
-            'msgServiceBgSelected': '#e3e3e8', 'msgBotKbOverBgAdd': '#0000000a',
-            'msgBotKbRippleBg': '#00000014', 'botKbBg': '#dedee4',
-            'botKbDownBg': '#d2d2d9', 'botKbColor': '#1d1d1f'})
-nite.update({'msgServiceBg': '#2c2c2e', 'msgServiceFg': '#f5f5f7',
-             'msgServiceBgSelected': '#3a3a3c', 'botKbBg': '#2c2c2e',
-             'botKbDownBg': '#3a3a3c', 'botKbColor': '#f5f5f7'})
+day.update({'msgServiceBg': '#eef4f1', 'msgServiceFg': '#0b1210',
+            'msgServiceBgSelected': '#dde8e3', 'msgBotKbOverBgAdd': '#0000000a',
+            'msgBotKbRippleBg': '#00000014', 'botKbBg': '#dde6e2',
+            'botKbDownBg': '#d0dcd7', 'botKbColor': '#0b1210'})
+nite.update({'msgServiceBg': '#101816', 'msgServiceFg': '#e8f5ef',
+             'msgServiceBgSelected': '#18211e', 'botKbBg': '#101816',
+             'botKbDownBg': '#18211e', 'botKbColor': '#e8f5ef'})
 
 # Glass: the window behind these areas is the macOS vibrancy layer.
 GLASS_KEYS = ('dialogsBg', 'sideBarBg', 'titleBg', 'titleBgActive', 'topBarBg')

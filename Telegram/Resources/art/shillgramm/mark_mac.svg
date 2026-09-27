@@ -1,1 +1,14 @@
-<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1B2130"/><stop offset="1" stop-color="#2A3346"/></linearGradient></defs><rect x="100" y="100" width="824" height="824" rx="184" fill="#FFFFFF" stroke="#E7E7EA" stroke-width="6"/><path transform="translate(44.0 53.6) scale(0.78)" d="M742 452C710 400 654 376 594 376C516 376 458 420 458 484C458 548 512 574 600 594C688 614 748 642 748 712C748 780 688 820 604 820C540 820 484 796 452 744" stroke="#18191B" stroke-width="112" stroke-linecap="round"/><circle cx="742" cy="300" r="68" fill="#E9F3EE"/><circle cx="742" cy="300" r="34" fill="#1D6B48"/></svg>
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+<defs>
+<linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0B0F0E"/><stop offset="1" stop-color="#020303"/></linearGradient>
+<radialGradient id="top" cx="512" cy="120" r="560" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#19E6A2" stop-opacity="0.09"/><stop offset="1" stop-color="#19E6A2" stop-opacity="0"/></radialGradient>
+<radialGradient id="halo" cx="742" cy="300" r="150" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#19E6A2" stop-opacity="0.55"/><stop offset="0.45" stop-color="#19E6A2" stop-opacity="0.18"/><stop offset="1" stop-color="#19E6A2" stop-opacity="0"/></radialGradient>
+</defs>
+<rect x="100" y="100" width="824" height="824" rx="184" fill="url(#bg)"/>
+<rect x="100" y="100" width="824" height="824" rx="184" fill="url(#top)"/>
+<rect x="102" y="102" width="820" height="820" rx="182" stroke="#E8F5EF" stroke-opacity="0.12" stroke-width="4"/>
+<path transform="translate(44.0 53.6) scale(0.78)" d="M742 452C710 400 654 376 594 376C516 376 458 420 458 484C458 548 512 574 600 594C688 614 748 642 748 712C748 780 688 820 604 820C540 820 484 796 452 744" stroke="#FFFFFF" stroke-width="112" stroke-linecap="round"/>
+<circle cx="742" cy="300" r="150" fill="url(#halo)"/>
+<circle cx="742" cy="300" r="62" stroke="#19E6A2" stroke-opacity="0.6" stroke-width="6"/>
+<circle cx="742" cy="300" r="36" fill="#19E6A2"/>
+</svg>

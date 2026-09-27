@@ -558,6 +558,17 @@ void PaintRow(
 		if (fade) {
 			p.setOpacity(1.);
 		}
+		if (context.active && !context.narrow) {
+			// SHILLVPN style: the open chat gets a thin mint neon outline.
+			auto line = st::activeLineFg->c;
+			line.setAlphaF(0.55);
+			p.setPen(QPen(line, style::ConvertScaleExact(1.)));
+			p.setBrush(Qt::NoBrush);
+			p.drawRoundedRect(
+				QRectF(inset).marginsRemoved({ 0.5, 0.5, 0.5, 0.5 }),
+				radius,
+				radius);
+		}
 	}
 	if (!(flags & Flag::TopicJumpRipple)) {
 		auto ripple = context.active
