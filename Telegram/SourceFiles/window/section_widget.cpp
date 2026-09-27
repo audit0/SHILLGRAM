@@ -398,7 +398,13 @@ void SectionWidget::PaintBackground(
 		bool paused) {
 	const auto &background = theme->background();
 	if (background.colorForFill) {
-		p.fillRect(clip, *background.colorForFill);
+		auto color = *background.colorForFill;
+#ifdef Q_OS_MAC
+		// ShillGramm glass: a solid chat background is only a tint over
+		// the macOS glass behind the window; bubbles stay opaque.
+		color.setAlpha(Window::Theme::IsNightMode() ? 0x4d : 0x80);
+#endif // Q_OS_MAC
+		p.fillRect(clip, color);
 		return;
 	}
 	const auto &gradient = background.gradientForFill;
