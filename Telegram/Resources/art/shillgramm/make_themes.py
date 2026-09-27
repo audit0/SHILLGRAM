@@ -267,6 +267,16 @@ for theme, alpha, hover, over in (
         theme['menuBgOver'] = hover + over
 
 
+# Message input: the band blends with the glass chat area, the capsule is
+# a slightly denser piece of glass (the field itself is transparent).
+for theme, band, capsule in ((day, '80', 'b3'), (nite, '4d', '8c')):
+    for key, alpha in (('historyReplyBg', band),
+                       ('historyComposeAreaBg', capsule)):
+        value = solid(theme, key)
+        if value:
+            theme[key] = value + alpha
+
+
 def solid_png(hex6):
     r, g, b, _ = rgba(hex6)
     raw = b'\x00' + bytes(round(x * 255) for x in (r, g, b))
