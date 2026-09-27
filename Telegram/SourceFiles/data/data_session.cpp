@@ -7,6 +7,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "data/data_session.h"
 
+#include "shillgramm/shill_pins.h"
+
 #include "main/main_session.h"
 #include "main/main_session_settings.h"
 #include "main/main_app_config.h"
@@ -2620,6 +2622,17 @@ void Session::setChatPinned(
 void Session::setPinnedFromEntryList(Dialogs::Key key, bool pinned) {
 	Expects(key.entry()->folderKnown());
 
+	// ShillGramm: the server does not know our local pins.
+	if (!pinned) {
+		if (const auto history = key.history()) {
+			if (Shill::LocalPins::For(_session)->contains(history)) {
+				if (history->isPinnedDialog(FilterId())) {
+					return;
+				}
+				pinned = true;
+			}
+		}
+	}
 	const auto list = chatsListFor(key.entry())->pinned();
 	if (pinned) {
 		list->addPinned(key);
@@ -2651,6 +2664,7 @@ void Session::applyPinnedChats(
 		});
 	}
 	chatsList(folder)->pinned()->applyList(this, list);
+	Shill::LocalPins::For(_session)->reapply(folder);
 	notifyPinnedDialogsOrderUpdated();
 }
 
@@ -2750,7 +2764,9 @@ bool Session::pinnedCanPin(not_null<Dialogs::Entry*> entry) const {
 		return pinnedChatsOrder(forum).size() < pinnedChatsLimit(forum);
 	} else {
 		const auto folder = entry->folder();
-		return pinnedChatsOrder(folder).size() < pinnedChatsLimit(folder);
+		const auto local = Shill::LocalPins::For(_session)->count(folder);
+		return int(pinnedChatsOrder(folder).size()) - local
+			< pinnedChatsLimit(folder);
 	}
 }
 
@@ -2799,9 +2815,10 @@ rpl::producer<int> Session::maxPinnedChatsLimitValue(
 	// premium-ly added chats from the pinned list because of sync issues.
 	return _session->appConfig().value(
 	) | rpl::map([folder, limits = Data::PremiumLimits(_session)] {
-		return folder
+		// ShillGramm: room for local pins past the server's limit.
+		return Shill::LocalPins::kMax + (folder
 			? limits.dialogsFolderPinnedPremium()
-			: limits.dialogsPinnedPremium();
+			: limits.dialogsPinnedPremium());
 	});
 }
 
@@ -2869,6 +2886,7 @@ void Session::clearPinnedChats(Data::Folder *folder) {
 		_pinnedCommunitiesNotLoaded.clear();
 	}
 	chatsList(folder)->pinned()->clear();
+	Shill::LocalPins::For(_session)->reapply(folder);
 }
 
 void Session::reorderTwoPinnedChats(

@@ -7,6 +7,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "apiwrap.h"
 
+#include "shillgramm/shill_pins.h"
+
 #include "api/api_authorizations.h"
 #include "api/api_attached_stickers.h"
 #include "api/api_blocked_peers.h"
@@ -423,10 +425,15 @@ void ApiWrap::savePinnedOrder(Data::Folder *folder) {
 	};
 	auto peers = QVector<MTPInputDialogPeer>();
 	peers.reserve(order.size());
-	ranges::transform(
-		order,
-		ranges::back_inserter(peers),
-		input);
+	const auto local = Shill::LocalPins::For(_session);
+	for (const auto &key : order) {
+		// ShillGramm: local pins stay on this device.
+		if (const auto history = key.history(); history
+			&& local->contains(history)) {
+			continue;
+		}
+		peers.push_back(input(key));
+	}
 	request(MTPmessages_ReorderPinnedDialogs(
 		MTP_flags(MTPmessages_ReorderPinnedDialogs::Flag::f_force),
 		MTP_int(folder ? folder->id() : 0),

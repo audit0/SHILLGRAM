@@ -2229,6 +2229,8 @@ PRIVATE
     shillgramm/shill_palette.h
     shillgramm/shill_panel.cpp
     shillgramm/shill_panel.h
+    shillgramm/shill_pins.cpp
+    shillgramm/shill_pins.h
     shillgramm/shill_snooze.cpp
     shillgramm/shill_snooze.h
     shillgramm/shill_version.h

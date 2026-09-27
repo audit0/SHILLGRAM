@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "window/window_peer_menu.h"
 
+#include "shillgramm/shill_pins.h"
 #include "shillgramm/shill_snooze.h"
 
 #include "base/call_delayed.h"
@@ -411,10 +412,17 @@ bool PinnedLimitReached(
 		owner->setChatPinned(wasted, FilterId(), false);
 		owner->setChatPinned(history, FilterId(), true);
 		history->session().api().savePinnedOrder(folder);
-	} else if (folder) {
-		controller->show(Box(FolderPinsLimitBox, &history->session()));
 	} else {
-		controller->show(Box(PinsLimitBox, &history->session()));
+		// ShillGramm: past Telegram's limit (5, 10 with Premium) the chat
+		// is pinned in this app on this device instead of the limit box.
+		Shill::LocalPins::For(&history->session())->add(history);
+		owner->setChatPinned(history, FilterId(), true);
+		controller->content()->dialogsToUp();
+		controller->showToast(Shill::Tr(
+			"Pinned in SHILLGRAM on this device: Telegram's pin limit "
+			"is reached.",
+			"Закреплено в SHILLGRAM на этом устройстве: лимит закрепов "
+			"Telegram исчерпан."));
 	}
 	return true;
 }
@@ -443,6 +451,18 @@ void TogglePinnedThread(
 	const auto isPinned = !entry->isPinnedDialog(FilterId());
 	if (isPinned && PinnedLimitReached(controller, entry)) {
 		return;
+	}
+	if (const auto history = entry->asHistory(); history && !isPinned) {
+		const auto local = Shill::LocalPins::For(&history->session());
+		if (local->contains(history)) {
+			// ShillGramm: a local pin is unpinned without the server.
+			local->remove(history);
+			owner->setChatPinned(entry, FilterId(), false);
+			if (onToggled) {
+				onToggled();
+			}
+			return;
+		}
 	}
 
 	owner->setChatPinned(entry, FilterId(), isPinned);
