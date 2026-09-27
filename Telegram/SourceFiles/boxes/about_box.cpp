@@ -75,7 +75,7 @@ void AboutBox(not_null<Ui::GenericBox*> box, Window::SessionController* controll
 			st::boxRowPadding.right(),
 			st::boxRowPadding.bottom()));
 	version->setClickedCallback([=] {
-		File::OpenUrl(u"https://t.me/shillgramm"_q);
+		File::OpenUrl(u"https://t.me/SHILGRAM"_q);
 	});
 
 	Ui::AddSkip(layout, st::aboutTopSkip);
@@ -92,12 +92,12 @@ void AboutBox(not_null<Ui::GenericBox*> box, Window::SessionController* controll
 
 	box->addButton(tr::lng_close(), [=] { box->closeBox(); });
 	box->addLeftButton(
-		rpl::single(QString("@shillgramm")),
+		rpl::single(QString("@SHILGRAM")),
 		[box, controller]
 		{
 			box->closeBox();
 			controller->showPeerByLink(Window::PeerByLinkInfo{
-				.usernameOrId = QString("shillgramm"),
+				.usernameOrId = QString("SHILGRAM"),
 			});
 		});
 

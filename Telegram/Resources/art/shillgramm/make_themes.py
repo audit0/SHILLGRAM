@@ -71,15 +71,18 @@ KEEP_COLOUR = ('callAnswer', 'callHangup', 'callArrowMissed')
 # near-black ground #030404, mint #19e6a2 only as neon (links, numbers, thin
 # outlines, glow), light mint text #e8f5ef, muted #93aca2, dark glass cards.
 # The day theme is the same brand on a light mint-gray ground.
-DAY = dict(bg='#dfe7e4', panel='#ebf1ef', side='#e3eae7', soft='#dde6e2',
-           pill='#d0dcd7', line='#cdd9d4', lineSoft='#d8e2de', ink='#0b1210',
-           inkOver='#030404', muted='#5d7169', faint='#768982', accent='#0b9e6f',
-           accentSoft='#d6f2e7', sel='#d6e3de', selLine='#b9d6ca', hot='#19e6a2',
-           note='#e3f3ec', noteLine='#b9e3d1', ok='#0b9e6f', warn='#b26a00', bad='#d93a2f',
-           outBg='#0b1210', outSel='#16211d', outFg='#e8f5ef', outSub='#93aca2',
-           outLink='#19e6a2', inBg='#f7faf9', inSel='#e6eeeb',
+# Day theme (27.09.2026, «светлую тему сделай приятную как тёмную»): the same
+# brand turned to light — near-white glass, mint only where it means something,
+# outgoing bubbles a pale mint twin of the night theme's dark mint ones.
+DAY = dict(bg='#edf2f0', panel='#fbfdfc', side='#f1f5f3', soft='#e8efec',
+           pill='#dde8e3', line='#dbe5e1', lineSoft='#e6edea', ink='#0b1210',
+           inkOver='#030404', muted='#5b6e67', faint='#7d8f88', accent='#0a8a60',
+           accentSoft='#d9f4e9', sel='#e0f2ea', selLine='#bfe6d5', hot='#19e6a2',
+           note='#e6f6ef', noteLine='#bfe6d5', ok='#0a8a60', warn='#b26a00', bad='#d93a2f',
+           outBg='#d5f3e6', outSel='#c1ebd9', outFg='#0b1210', outSub='#4f7a69',
+           outLink='#07734f', inBg='#ffffff', inSel='#eef4f1',
            btnBg='#0b1210', btnFg='#19e6a2', badgeFg='#030404',
-           userpics=['#a9c4ba', '#9bb8ad', '#b3c9c1', '#8fada2'])
+           userpics=['#c9ddd5', '#bfd3cc', '#d2e1db', '#b7cdc5'])
 NIGHT = dict(bg='#030404', panel='#070808', side='#050606', soft='#0f1513',
              pill='#18211e', line='#1a2320', lineSoft='#111816', ink='#e8f5ef',
              inkOver='#ffffff', muted='#93aca2', faint='#7a918a', accent='#19e6a2',
@@ -148,7 +151,7 @@ def swap_out(theme, other, dark):
 
 
 day_src, nite_src = dict(day), dict(nite)
-swap_out(day, nite_src, False)
+# The day theme keeps its own light outgoing keys (pale mint bubble).
 swap_out(nite, day_src, True)
 
 
@@ -235,12 +238,21 @@ day.update(common(DAY, False))
 nite.update(common(NIGHT, True))
 
 
+# Pale mint outgoing bubble (day): mint accents on it, a white icon in a
+# mint file circle, a waveform that reads as played / not yet played.
+day.update({'msgOutReplyBarColor': DAY['accent'], 'msgFileOutBg': DAY['accent'],
+            'msgFileOutBgSelected': '#077a55', 'historyFileOutIconFg': '#ffffff',
+            'historyFileOutIconFgSelected': '#ffffff',
+            'msgWaveformOutActive': DAY['accent'], 'msgWaveformOutActiveSelected': '#077a55',
+            'msgWaveformOutInactive': '#9fcfbb', 'msgWaveformOutInactiveSelected': '#8cc4ad'})
+
+
 # Readability: bot buttons and service pills get graphite text on a
 # clearly visible plate instead of gray on pale gray.
-day.update({'msgServiceBg': '#eef4f1', 'msgServiceFg': '#0b1210',
-            'msgServiceBgSelected': '#dde8e3', 'msgBotKbOverBgAdd': '#0000000a',
-            'msgBotKbRippleBg': '#00000014', 'botKbBg': '#dde6e2',
-            'botKbDownBg': '#d0dcd7', 'botKbColor': '#0b1210'})
+day.update({'msgServiceBg': '#dbe6e1', 'msgServiceFg': '#22332d',
+            'msgServiceBgSelected': '#cddcd6', 'msgBotKbOverBgAdd': '#0000000a',
+            'msgBotKbRippleBg': '#00000014', 'botKbBg': '#e6eeea',
+            'botKbDownBg': '#d6e2dd', 'botKbColor': '#0b1210'})
 nite.update({'msgServiceBg': '#101816', 'msgServiceFg': '#e8f5ef',
              'msgServiceBgSelected': '#18211e', 'botKbBg': '#101816',
              'botKbDownBg': '#18211e', 'botKbColor': '#e8f5ef'})

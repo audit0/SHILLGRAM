@@ -395,7 +395,7 @@ MainMenu::MainMenu(
 
 	_telegram->setMarkedText(tr::link(
 		u"SHILLGRAM Desktop"_q,
-		u"https://t.me/shillgramm"_q));
+		u"https://t.me/SHILGRAM"_q));
 	_telegram->setLinksTrusted();
 	_version->setMarkedText(
 		tr::link(

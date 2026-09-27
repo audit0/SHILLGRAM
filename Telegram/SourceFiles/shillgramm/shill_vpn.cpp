@@ -879,10 +879,10 @@ void VpnBox(not_null<Ui::GenericBox*> box) {
 		box->addRow(object_ptr<Ui::FlatLabel>(
 			box,
 			rpl::single(Tr(
-				"Telegram in ShillGramm works on any network through "
+				"Telegram in SHILLGRAM works on any network through "
 				"SHILLVPN. Paste your subscription link from @SHILLVPN_bot "
 				"or from the cabinet on shillvpn.site.",
-				"Telegram в ShillGramm работает в любой сети через "
+				"Telegram в SHILLGRAM работает в любой сети через "
 				"SHILLVPN. Вставьте ссылку подписки из @SHILLVPN_bot "
 				"или из личного кабинета на shillvpn.site.")),
 			st::boxLabel));

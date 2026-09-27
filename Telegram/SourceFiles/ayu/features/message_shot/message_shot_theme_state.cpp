@@ -293,9 +293,9 @@ QString embeddedThemeDisplayName(Window::Theme::EmbeddedType type) {
 	case Window::Theme::EmbeddedType::NightGreen:
 		return tr::lng_settings_theme_night(tr::now);
 	case Window::Theme::EmbeddedType::ShillDay:
-		return u"ShillGramm"_q;
+		return u"SHILLGRAM"_q;
 	case Window::Theme::EmbeddedType::ShillNight:
-		return u"ShillGramm Night"_q;
+		return u"SHILLGRAM Night"_q;
 	}
 	return tr::ayu_MessageShotThemeDefault(tr::now);
 }
