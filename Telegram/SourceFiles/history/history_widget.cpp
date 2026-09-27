@@ -11400,6 +11400,42 @@ void HistoryWidget::paintEvent(QPaintEvent *e) {
 			w,
 			h);
 		const auto st = controller()->chatStyle();
+
+		// ShillGramm: the SHILLVPN robot greets on the empty chat screen.
+		// The round version only (brand rule: not mirrored or recolored).
+		const auto robotSize = style::ConvertScale(156);
+		const auto robotSkip = style::ConvertScale(22);
+		if (tr.top() - robotSize - robotSkip > style::ConvertScale(12)) {
+			static auto cache = QImage();
+			const auto ratio = style::DevicePixelRatio();
+			if (cache.width() != robotSize * ratio) {
+				static const auto source = QImage(
+					u":/gui/shillgramm-robot.png"_q);
+				cache = source.scaled(
+					QSize(robotSize, robotSize) * ratio,
+					Qt::KeepAspectRatio,
+					Qt::SmoothTransformation);
+				cache.setDevicePixelRatio(ratio);
+			}
+			const auto robot = QRect(
+				(width() - robotSize) / 2,
+				tr.top() - robotSkip - robotSize,
+				robotSize,
+				robotSize);
+			{
+				auto hq = PainterHighQualityEnabler(p);
+				const auto center = QPointF(robot.center());
+				auto glow = QRadialGradient(center, robotSize * 0.9);
+				glow.setColorAt(0., QColor(25, 230, 162, 46));
+				glow.setColorAt(0.6, QColor(25, 230, 162, 14));
+				glow.setColorAt(1., QColor(25, 230, 162, 0));
+				p.setPen(Qt::NoPen);
+				p.setBrush(glow);
+				p.drawEllipse(center, robotSize * 0.9, robotSize * 0.9);
+			}
+			p.drawImage(robot, cache);
+		}
+
 		HistoryView::ServiceMessagePainter::PaintBubble(p, st, tr);
 
 		p.setPen(st->msgServiceFg());
