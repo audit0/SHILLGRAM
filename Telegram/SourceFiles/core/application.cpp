@@ -8,6 +8,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "core/application.h"
 
 #include "shillgramm/shill_palette.h"
+#include "shillgramm/shill_vpn.h"
 
 #include "data/data_abstract_structure.h"
 #include "data/data_channel.h"
@@ -228,6 +229,8 @@ void Application::closeAdditionalWindows() {
 }
 
 Application::~Application() {
+	Shill::Vpn::Instance().stop(); // ShillGramm: the VPN core goes with us.
+
 	if (_saveSettingsTimer && _saveSettingsTimer->isActive()) {
 		Local::writeSettings();
 	}
@@ -301,6 +304,7 @@ void Application::run() {
 	ValidateScale();
 
 	refreshGlobalProxy(); // Depends on app settings being read.
+	Shill::Vpn::Instance().start(); // ShillGramm: before accounts connect.
 
 	if (const auto old = Local::oldSettingsVersion(); old < AppVersion) {
 		autoRegisterUrlScheme();

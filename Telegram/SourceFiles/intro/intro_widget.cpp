@@ -49,6 +49,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 
 // AyuGram includes
 #include "boxes/about_box.h"
+#include "shillgramm/shill_vpn.h"
 
 
 namespace Intro {
@@ -92,6 +93,12 @@ Widget::Widget(
 		this,
 		tr::lng_menu_settings(),
 		st::defaultBoxButton))
+, _vpn(
+	this,
+	object_ptr<Ui::RoundButton>(
+		this,
+		Shill::Vpn::Instance().menuText(),
+		st::defaultBoxButton))
 , _next(
 	this,
 	object_ptr<Ui::RoundButton>(this, nullptr, *_nextStyle))
@@ -101,6 +108,13 @@ Widget::Widget(
 		account,
 		rpl::single(true))) {
 	_settings->entity()->setTextTransform(Ui::RoundButtonTextTransform::ToUpper);
+	_vpn->entity()->setTextTransform(Ui::RoundButtonTextTransform::NoTransform);
+	_vpn->entity()->setClickedCallback([] { Shill::ShowVpnBox(); });
+	_vpn->entity()->widthValue() | rpl::on_next([=](int) {
+		if (!_stepHistory.empty()) {
+			updateControlsGeometry();
+		}
+	}, _vpn->lifetime());
 	controller->setDefaultFloatPlayerDelegate(floatPlayerDelegate());
 
 	getData()->country = ComputeNewAccountCountry();
@@ -179,7 +193,13 @@ Widget::Widget(
 		}, lifetime());
 	}
 
-	_footer->setText(QString("ShillGramm Desktop v%1").arg(currentVersionText()));
+	_footer->setText(QString("SHILLGRAM Desktop v%1").arg(currentVersionText()));
+
+	// ShillGramm: the connection first, then the login. Without a
+	// subscription the SHILLVPN box greets the user.
+	if (!Shill::Vpn::Instance().hasSubscription()) {
+		crl::on_main(this, [] { Shill::ShowVpnBox(); });
+	}
 }
 
 rpl::producer<> Widget::showSettingsRequested() const {
@@ -423,6 +443,7 @@ void Widget::historyMove(StackAction action, Animate animate) {
 
 	auto stepHasCover = getStep()->hasCover();
 	_settings->toggle(!stepHasCover, anim::type::normal);
+	_vpn->toggle(!stepHasCover, anim::type::normal);
 	if (_testModeLabel) {
 		_testModeLabel->toggle(!stepHasCover, anim::type::normal);
 	}
@@ -452,6 +473,7 @@ void Widget::fixOrder() {
 	if (_update) _update->raise();
 	if (_changeLanguage) _changeLanguage->raise();
 	_settings->raise();
+	_vpn->raise();
 	_back->raise();
 	floatPlayerRaiseAll();
 	_connecting->raise();
@@ -716,6 +738,7 @@ void Widget::showControls() {
 	_connecting->setForceHidden(false);
 	auto hasCover = getStep()->hasCover();
 	_settings->toggle(!hasCover, anim::type::instant);
+	_vpn->toggle(!hasCover, anim::type::instant);
 	if (_testModeLabel) {
 		_testModeLabel->toggle(!hasCover, anim::type::instant);
 	}
@@ -766,6 +789,7 @@ void Widget::hideControls() {
 	_next->hide(anim::type::instant);
 	_connecting->setForceHidden(true);
 	_settings->hide(anim::type::instant);
+	_vpn->hide(anim::type::instant);
 	if (_testModeLabel) _testModeLabel->hide(anim::type::instant);
 	if (_update) _update->hide(anim::type::instant);
 	if (_changeLanguage) _changeLanguage->hide(anim::type::instant);
@@ -837,16 +861,18 @@ void Widget::updateControlsGeometry() {
 		getStep()->hasCover() ? st::introCoverHeight : 0,
 		shown);
 	_settings->moveToRight(skip, controlsTop + skip);
+	_vpn->moveToRight(skip + _settings->width() + skip, controlsTop + skip);
+	const auto leftOfVpn = skip + _settings->width() + skip + _vpn->width() + skip;
 	if (_testModeLabel) {
 		_testModeLabel->moveToRight(
-			skip + _settings->width() + skip,
+			leftOfVpn,
 			_settings->y()
 				+ (_settings->height()
 				- _testModeLabel->height()) / 2);
 	}
 	if (_update) {
 		_update->moveToRight(
-			skip + _settings->width() + skip,
+			leftOfVpn,
 			_settings->y());
 	}
 	_back->moveToLeft(0, controlsTop);

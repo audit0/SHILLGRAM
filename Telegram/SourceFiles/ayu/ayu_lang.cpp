@@ -206,7 +206,7 @@ void AyuLanguage::applyLanguageJson(QJsonDocument doc) {
 			if (key == qsl("ayu_SettingsWatermark")) {
 				continue;
 			}
-			val = val.replace(qsl("AyuGram"), qsl("ShillGramm"));
+			val = val.replace(qsl("AyuGram"), qsl("SHILLGRAM"));
 		}
 
 		if (val.contains(qsl("%1$d")) && !val.contains(qsl("%2$d"))) {

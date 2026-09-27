@@ -2232,6 +2232,9 @@ PRIVATE
     shillgramm/shill_snooze.cpp
     shillgramm/shill_snooze.h
     shillgramm/shill_version.h
+    shillgramm/shill_vpn.cpp
+    shillgramm/shill_vpn.h
+    shillgramm/shill_vpn_mac.mm
     config.h
     logs.cpp
     logs.h
@@ -2530,6 +2533,19 @@ else()
 endif()
 
 set_target_properties(Telegram PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${output_folder})
+
+# ShillGramm: the Xray core for the built-in SHILLVPN goes into
+# Contents/Helpers (see shillgramm/shill_vpn.cpp). Without it the app still
+# builds, the SHILLVPN box then says the core is missing.
+set(SHILLGRAMM_VPN_CORE "${CMAKE_SOURCE_DIR}/../Libraries/xray/xray" CACHE FILEPATH "Xray core for the built-in SHILLVPN")
+if (APPLE AND EXISTS "${SHILLGRAMM_VPN_CORE}")
+    add_custom_command(TARGET Telegram
+    POST_BUILD
+        COMMAND mkdir -p $<TARGET_FILE_DIR:Telegram>/../Helpers
+        COMMAND install -m 0755 "${SHILLGRAMM_VPN_CORE}" $<TARGET_FILE_DIR:Telegram>/../Helpers/xray
+        COMMAND codesign --force --sign - $<TARGET_FILE_DIR:Telegram>/../Helpers/xray
+    )
+endif()
 
 if (MSVC)
     target_link_libraries(Telegram

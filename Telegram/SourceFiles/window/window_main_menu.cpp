@@ -66,6 +66,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "window/window_controller.h"
 #include "window/window_main_menu_helpers.h"
 #include "window/window_peer_menu.h"
+#include "shillgramm/shill_vpn.h"
 #include "window/window_session_controller.h"
 #include "styles/style_chat.h" // popupMenuExpandedSeparator
 #include "styles/style_menu_icons.h"
@@ -391,8 +392,8 @@ MainMenu::MainMenu(
 	parentResized();
 
 	_telegram->setMarkedText(tr::link(
-		u"ShillGramm Desktop"_q,
-		u"https://ayugram.one"_q));
+		u"SHILLGRAM Desktop"_q,
+		u"https://t.me/shillgramm"_q));
 	_telegram->setLinksTrusted();
 	_version->setMarkedText(
 		tr::link(
@@ -701,6 +702,14 @@ void MainMenu::setupMenu() {
 			st::mainMenuButton,
 			std::move(descriptor));
 	};
+	// ShillGramm: SHILLVPN with the days left; renew from here.
+	addAction(
+		Shill::Vpn::Instance().menuText(),
+		{ &st::menuIconNetwork }
+	)->setClickedCallback([=] {
+		Shill::ShowVpnBox(controller);
+	});
+
 	if (!_controller->session().supportMode()) {
 		if (settings.showMyProfileInDrawer())
 		_menu->add(
