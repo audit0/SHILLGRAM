@@ -2233,6 +2233,8 @@ PRIVATE
     shillgramm/shill_panel.h
     shillgramm/shill_pins.cpp
     shillgramm/shill_pins.h
+    shillgramm/shill_site_panel.cpp
+    shillgramm/shill_site_panel.h
     shillgramm/shill_snooze.cpp
     shillgramm/shill_snooze.h
     shillgramm/shill_version.h

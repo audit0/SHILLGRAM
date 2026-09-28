@@ -12,6 +12,7 @@ ShillGramm: SHILLVPN built into the app.
 #include "core/file_utilities.h"
 #include "lang/lang_instance.h"
 #include "settings.h"
+#include "shillgramm/shill_site_panel.h"
 #include "shillgramm/shill_snooze.h" // Tr
 #include "ui/layers/generic_box.h"
 #include "ui/widgets/buttons.h"
@@ -27,6 +28,7 @@ ShillGramm: SHILLVPN built into the app.
 
 #include <QtCore/QCoreApplication>
 #include <QtCore/QCryptographicHash>
+#include <QtCore/QDateTime>
 #include <QtCore/QMessageAuthenticationCode>
 #include <QtCore/QSysInfo>
 #include <QtCore/QTimer>
@@ -48,6 +50,11 @@ ShillGramm: SHILLVPN built into the app.
 #include <QtNetwork/QNetworkRequest>
 #include <QtNetwork/QTcpServer>
 #include <QtNetwork/QTcpSocket>
+
+#include <openssl/sha.h>
+
+#include <atomic>
+#include <thread>
 
 namespace Shill {
 namespace {
@@ -125,6 +132,47 @@ const auto kTokenRe = QRegularExpression(
 		QCryptographicHash::Sha256).toHex());
 }
 
+// The site asks for a proof of work, so one script cannot take every
+// trial: sha256(prefix + pow) must start with 24 zero bits, about 16
+// million tries, a second or three on all the cores. Runs off the main
+// thread.
+[[nodiscard]] QByteArray SolveTrialWork(const QByteArray &prefix) {
+	auto base = SHA256_CTX();
+	SHA256_Init(&base);
+	SHA256_Update(&base, prefix.constData(), prefix.size());
+	const auto threads = std::clamp(
+		int(std::thread::hardware_concurrency()),
+		1,
+		8);
+	auto found = std::atomic<quint64>(0);
+	auto workers = std::vector<std::thread>();
+	for (auto t = 0; t != threads; ++t) {
+		workers.emplace_back([&, t] {
+			char buffer[24];
+			unsigned char digest[SHA256_DIGEST_LENGTH];
+			for (auto n = quint64(t + 1);
+				!found.load(std::memory_order_relaxed);
+				n += threads) {
+				const auto length = std::snprintf(
+					buffer,
+					sizeof(buffer),
+					"%llu",
+					static_cast<unsigned long long>(n));
+				auto context = base;
+				SHA256_Update(&context, buffer, length);
+				SHA256_Final(digest, &context);
+				if (!digest[0] && !digest[1] && !digest[2]) {
+					found.store(n);
+				}
+			}
+		});
+	}
+	for (auto &worker : workers) {
+		worker.join();
+	}
+	return QByteArray::number(found.load());
+}
+
 [[nodiscard]] QString TrialError(const QString &code) {
 	if (code == u"trial_used"_q) {
 		return Tr(
@@ -132,11 +180,11 @@ const auto kTokenRe = QRegularExpression(
 			"the site or paste your subscription link.",
 			"На этом устройстве бесплатные дни уже были. Купите SHILLVPN "
 			"на сайте или вставьте ссылку подписки.");
-	} else if (code == u"busy"_q) {
+	} else if (code == u"busy"_q || code == u"pow"_q) {
 		return Tr(
 			"Too many requests right now. Try again in a few minutes.",
 			"Сейчас много запросов. Попробуйте через несколько минут.");
-	} else if (code == u"closed"_q) {
+	} else if (code == u"closed"_q || code == u"unavailable"_q) {
 		return Tr(
 			"Free days are not given out right now. Buy SHILLVPN on the "
 			"site or paste your subscription link.",
@@ -455,8 +503,16 @@ void Vpn::api(
 		QJsonDocument(request).toJson(QJsonDocument::Compact));
 	QObject::connect(reply, &QNetworkReply::finished, [=] {
 		reply->deleteLater();
+		const auto code = reply->attribute(
+			QNetworkRequest::HttpStatusCodeAttribute).toInt();
 		const auto document = QJsonDocument::fromJson(reply->readAll());
-		if (document.isObject()) {
+		if (code == 429 || code == 503) {
+			// Plain text from the front server: wait and ask again.
+			done(QJsonObject{
+				{ u"ok"_q, false },
+				{ u"error"_q, u"busy"_q },
+			});
+		} else if (document.isObject()) {
 			done(document.object());
 		} else {
 			done(std::nullopt);
@@ -478,13 +534,33 @@ void Vpn::startTrial(Fn<void(QString)> done) {
 		waitTrialReady(0, finish);
 		return;
 	}
+	const auto device = DeviceId();
+	const auto hour = QDateTime::currentSecsSinceEpoch() / 3600;
+	auto prefix = QByteArray("shillvpn/app-trial");
+	prefix.append('\0').append(device.toLatin1());
+	prefix.append('\0').append(QByteArray::number(hour)).append('\0');
+	crl::async([=] {
+		const auto work = SolveTrialWork(prefix);
+		crl::on_main([=] {
+			requestTrial(device, hour, QString::fromLatin1(work), finish);
+		});
+	});
+}
+
+void Vpn::requestTrial(
+		const QString &device,
+		qint64 hour,
+		const QString &work,
+		Fn<void(QString)> finish) {
 	api(QJsonObject{
 		{ u"action"_q, u"shop_app_trial"_q },
-		{ u"device"_q, DeviceId() },
+		{ u"device"_q, device },
 		{ u"accept_terms"_q, true },
 		{ u"lang"_q, Lang::GetInstance().id().startsWith(u"ru"_q)
 			? u"ru"_q
 			: u"en"_q },
+		{ u"pow_hour"_q, hour },
+		{ u"pow"_q, work },
 	}, [=](std::optional<QJsonObject> reply) {
 		if (!reply) {
 			finish(Tr(
@@ -513,6 +589,16 @@ void Vpn::waitTrialReady(int attempt, Fn<void(QString)> done) {
 		{ u"key"_q, _cabinetKey },
 	}, [=](std::optional<QJsonObject> reply) {
 		if (reply && reply->value(u"ok"_q).toBool()) {
+			const auto status = reply->value(u"subscription"_q)
+				.toObject().value(u"status"_q).toString();
+			if (status == u"expired"_q) {
+				done(Tr(
+					"The free days of this device are over. Buy SHILLVPN "
+					"to go on.",
+					"Бесплатные дни на этом устройстве закончились. Купите "
+					"SHILLVPN, чтобы продолжить."));
+				return;
+			}
 			const auto url = reply->value(u"subscription_url"_q).toString();
 			if (reply->value(u"ready"_q).toBool() && TokenFromLink(url)) {
 				setLink(url, done);
@@ -1090,7 +1176,7 @@ void VpnBox(not_null<Ui::GenericBox*> box) {
 		box->addSkip(st::boxLittleSkip);
 		addLink(
 			rpl::single(Tr("Buy SHILLVPN", "Купить SHILLVPN")),
-			[] { File::OpenUrl(QString::fromLatin1(kSite) + u"/app/buy/"_q); });
+			[] { OpenSitePanel(QString::fromLatin1(kSite) + u"/app/buy/"_q); });
 		box->addSkip(st::boxLittleSkip);
 		box->addRow(object_ptr<Ui::FlatLabel>(
 			box,
@@ -1189,7 +1275,7 @@ void ShowVpnBox(not_null<Window::SessionController*> controller) {
 void OpenVpnRenew(Window::SessionController *controller) {
 	if (Vpn::Instance().hasCabinet()) {
 		// The app's own trial is a site account, not the Telegram one.
-		File::OpenUrl(Vpn::Instance().cabinetUrl());
+		OpenSitePanel(Vpn::Instance().cabinetUrl());
 		return;
 	}
 	if (!controller) {
@@ -1205,7 +1291,7 @@ void OpenVpnRenew(Window::SessionController *controller) {
 				.sessionWindow = base::make_weak(controller),
 			}));
 	} else {
-		File::OpenUrl(QString::fromLatin1(kSite) + u"/app/buy/"_q);
+		OpenSitePanel(QString::fromLatin1(kSite) + u"/app/buy/"_q);
 	}
 }
 

@@ -1031,7 +1031,11 @@ private:
 			if (!_tracking) {
 				return false;
 			}
-			_pull += wheel->pixelDelta().y();
+			// Finger travel down is positive whatever the macOS scroll
+			// direction setting is ("natural" reports inverted deltas).
+			_pull += wheel->inverted()
+				? wheel->pixelDelta().y()
+				: -wheel->pixelDelta().y();
 			if (!_consuming && _pull <= 0.) {
 				// Scrolling content the usual way, not pulling.
 				_tracking = false;

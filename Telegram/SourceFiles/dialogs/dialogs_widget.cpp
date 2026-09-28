@@ -503,7 +503,12 @@ Widget::Widget(
 		OverscrollType::Real);
 	_scroll->setOverscrollPullDistances(st::dialogsStoriesFull.height, 0);
 	Shill::SetupPullToSearch(_scroll.data(), controller, [=] {
-		return (!_stories || _stories->empty())
+		// With stories the first pull opens them, as in Telegram; once
+		// they are fully out the next pull opens the command palette.
+		return (!_stories
+				|| _stories->empty()
+				|| _stories->toggledHidden()
+				|| _stories->collapsedGeometryCurrent().expanded >= 1.)
 			&& !_searchHasFocus
 			&& _searchState.query.isEmpty();
 	});

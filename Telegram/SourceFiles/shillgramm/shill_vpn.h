@@ -97,6 +97,11 @@ private:
 	void api(
 		QJsonObject request,
 		Fn<void(std::optional<QJsonObject> reply)> done);
+	void requestTrial(
+		const QString &device,
+		qint64 hour,
+		const QString &work,
+		Fn<void(QString error)> finish);
 	void waitTrialReady(int attempt, Fn<void(QString error)> done);
 	void launch();
 	void waitForPort(int attempt);
