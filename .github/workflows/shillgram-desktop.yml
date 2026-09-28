@@ -1,0 +1,297 @@
+name: SHILLGRAM desktop
+
+# Release builds of SHILLGRAM for Windows x64 and Linux x64.
+# Needs the repository secrets TDESKTOP_API_ID and TDESKTOP_API_HASH
+# (the owner's own keys from my.telegram.org). The keys never reach the logs:
+# they are passed through the environment and GitHub masks them.
+#
+# The Windows libraries take longer than one 6-hour job the first time, so
+# the Libraries step saves a partial cache when it times out; run the
+# workflow again and prepare.py continues from the finished stages.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release tag to attach the builds to (for example v1.1). Empty: artifacts only.'
+        required: false
+        default: ''
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+env:
+  XRAY_VERSION: v26.9.9
+  RELEASE_TAG: ${{ github.event_name == 'push' && github.ref_name || inputs.version }}
+
+jobs:
+
+  windows:
+    name: Windows x64
+    runs-on: windows-latest
+    timeout-minutes: 358
+
+    env:
+      PREPARE_PATH: "Telegram/build/prepare/prepare.py"
+
+    defaults:
+      run:
+        shell: cmd
+
+    steps:
+      - name: Prepare directories.
+        run: |
+          mkdir %userprofile%\TBuild\Libraries
+          mklink /d %GITHUB_WORKSPACE%\TBuild %userprofile%\TBuild
+          echo TBUILD=%GITHUB_WORKSPACE%\TBuild>>%GITHUB_ENV%
+          echo LibrariesPath=%GITHUB_WORKSPACE%\TBuild\Libraries\win64>>%GITHUB_ENV%
+
+      - name: Clone.
+        uses: actions/checkout@v7
+        with:
+          submodules: recursive
+          path: ${{ env.TBUILD }}\tdesktop
+
+      - name: First set up.
+        shell: bash
+        run: |
+          DOCPATH=$TBUILD/tdesktop/docs/building-win.md
+          SDK="$(grep "SDK version" $DOCPATH | sed -r 's/.*\*\*(.*)\*\* SDK version.*/\1/')"
+          echo "SDK=$SDK" >> $GITHUB_ENV
+
+          echo "$(sha256sum $TBUILD/tdesktop/$PREPARE_PATH | awk '{ print $1 }')" >> CACHE_KEY.txt
+          echo "$SDK" >> CACHE_KEY.txt
+          echo "CACHE_KEY=$(sha256sum CACHE_KEY.txt | awk '{ print $1 }')" >> $GITHUB_ENV
+
+          git config --global user.email "ci@example.com"
+          git config --global user.name "CI"
+
+      - uses: Eden-CI/msvc-dev-cmd@master
+        name: Native Tools Command Prompt.
+        with:
+          arch: x64
+          sdk: ${{ env.SDK }}
+          toolset: '14.44'
+
+      - name: NuGet sources.
+        run: |
+          nuget sources Disable -Name "Microsoft Visual Studio Offline Packages"
+          nuget sources Add -Source https://api.nuget.org/v3/index.json & exit 0
+
+      - name: Restore libraries.
+        id: restore-libs
+        uses: actions/cache/restore@v6
+        with:
+          path: |
+            ${{ env.TBUILD }}\ThirdParty
+            ${{ env.TBUILD }}\Libraries
+          key: win64-release-libs-${{ env.CACHE_KEY }}
+          restore-keys: |
+            win64-release-libs-partial-${{ env.CACHE_KEY }}-
+            win64-release-libs-
+
+      - name: Libraries.
+        id: libs
+        timeout-minutes: 290
+        run: |
+          %TBUILD%\tdesktop\Telegram\build\prepare\win.bat silent qt6
+
+      - name: Save partial libraries.
+        if: always() && steps.libs.outcome != 'success' && steps.restore-libs.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: |
+            ${{ env.TBUILD }}\ThirdParty
+            ${{ env.TBUILD }}\Libraries
+          key: win64-release-libs-partial-${{ env.CACHE_KEY }}-${{ github.run_id }}-${{ github.run_attempt }}
+
+      - name: Free up some disk space.
+        shell: bash
+        run: find $LibrariesPath '(' '(' ! '(' -name '*.lib' -o -name '*.a' -o -name '*.exe' -o -name '*.h' -o -name '*.hpp' -o -name '*.inc' -o -name '*.cmake' -o -name '*.pc' -o -path '*/include/*' -o -path '*/objects-*' -o -path '*/cache_keys/*' -o -path '*/patches/*' -o -path '*/nv-codec-headers/*' ')' -type f ')' -o -empty ')' -delete
+
+      - name: Save libraries.
+        if: steps.restore-libs.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: |
+            ${{ env.TBUILD }}\ThirdParty
+            ${{ env.TBUILD }}\Libraries
+          key: win64-release-libs-${{ env.CACHE_KEY }}
+
+      - name: SHILLGRAM build.
+        env:
+          TDESKTOP_API_ID: ${{ secrets.TDESKTOP_API_ID }}
+          TDESKTOP_API_HASH: ${{ secrets.TDESKTOP_API_HASH }}
+        run: |
+          cd %TBUILD%\tdesktop\Telegram
+
+          call configure.bat ^
+          x64 ^
+          qt6 ^
+          -D TDESKTOP_API_ID=%TDESKTOP_API_ID% ^
+          -D TDESKTOP_API_HASH=%TDESKTOP_API_HASH% ^
+          -D CMAKE_CONFIGURATION_TYPES=Release ^
+          -D DESKTOP_APP_DISABLE_AUTOUPDATE=ON ^
+          -D DESKTOP_APP_DISABLE_CRASH_REPORTS=ON
+          if %errorlevel% neq 0 exit /b %errorlevel%
+
+          cmake --build ..\out --config Release --parallel
+
+      - name: Package.
+        shell: bash
+        run: |
+          set -e
+          OUT="$TBUILD/tdesktop/out/Release"
+          mkdir -p package/SHILLGRAM
+          cp "$OUT/ShillGramm.exe" package/SHILLGRAM/SHILLGRAM.exe
+          curl -sSfL -o xray.zip "https://github.com/XTLS/Xray-core/releases/download/$XRAY_VERSION/Xray-windows-64.zip"
+          unzip -o -j xray.zip xray.exe -d package/SHILLGRAM
+          cp "$TBUILD/tdesktop/LICENSE" package/SHILLGRAM/LICENSE.txt
+          NAME="SHILLGRAM-${RELEASE_TAG:-dev}-Windows-x64"
+          NAME="${NAME/-v/-}"
+          (cd package && 7z a -tzip "../$NAME.zip" SHILLGRAM > /dev/null)
+          sha256sum "$NAME.zip"
+          echo "PACKAGE=$NAME.zip" >> $GITHUB_ENV
+
+      - uses: actions/upload-artifact@v7
+        name: Upload artifact.
+        with:
+          name: SHILLGRAM Windows x64
+          path: ${{ env.PACKAGE }}
+
+  linux:
+    name: Linux x64
+    runs-on: ubuntu-latest
+    timeout-minutes: 358
+
+    env:
+      IMAGE_TAG: tdesktop:centos_env
+
+    steps:
+      - name: Clone.
+        uses: actions/checkout@v7
+        with:
+          submodules: recursive
+
+      - name: First set up.
+        run: |
+          sudo apt update
+          curl -sSL https://install.python-poetry.org | python3 -
+          cd Telegram/build/docker/centos_env
+          poetry install
+          DOCKERFILE=$(DEBUG= LTO= poetry run gen_dockerfile)
+          echo "$DOCKERFILE" > Dockerfile
+          rm -rf __pycache__
+
+      - name: Free up some disk space.
+        uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be
+        with:
+          tool-cache: true
+
+      - name: Set up Docker Buildx.
+        id: setup-buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Libraries cache.
+        id: cache-libs
+        uses: actions/cache@v6
+        with:
+          path: |
+            ${{ runner.temp }}/.buildx-cache
+            ${{ runner.temp }}/.mount-cache
+          key: linux-release-libs-${{ hashFiles('Telegram/build/docker/centos_env/**') }}
+          restore-keys: linux-release-libs-
+
+      - name: Restore Docker cache mounts.
+        uses: reproducible-containers/buildkit-cache-dance@5422eac04292c961a382e0f584ea0f03ad9da723
+        with:
+          builder: ${{ steps.setup-buildx.outputs.name }}
+          cache-dir: ${{ runner.temp }}/.mount-cache
+          dockerfile: Telegram/build/docker/centos_env/Dockerfile
+          skip-extraction: ${{ steps.cache-libs.outputs.cache-hit }}
+
+      - name: Libraries.
+        uses: docker/build-push-action@v7
+        with:
+          context: Telegram/build/docker/centos_env
+          load: true
+          tags: ${{ env.IMAGE_TAG }}
+          cache-from: type=local,src=${{ runner.temp }}/.buildx-cache
+          cache-to: type=local,dest=${{ runner.temp }}/.buildx-cache-new,mode=max
+
+      - name: Move cache.
+        run: |
+          rm -rf ${{ runner.temp }}/.buildx-cache
+          mv ${{ runner.temp }}/.buildx-cache{-new,}
+
+      - name: SHILLGRAM build.
+        env:
+          TDESKTOP_API_ID: ${{ secrets.TDESKTOP_API_ID }}
+          TDESKTOP_API_HASH: ${{ secrets.TDESKTOP_API_HASH }}
+        run: |
+          docker run --rm \
+          -u $(id -u) \
+          -v $PWD:/usr/src/tdesktop \
+          -e CONFIG=Release \
+          -e TDESKTOP_API_ID \
+          -e TDESKTOP_API_HASH \
+          $IMAGE_TAG \
+          bash -c '/usr/src/tdesktop/Telegram/build/docker/centos_env/build.sh \
+          -D CMAKE_CONFIGURATION_TYPES=Release \
+          -D TDESKTOP_API_ID="$TDESKTOP_API_ID" \
+          -D TDESKTOP_API_HASH="$TDESKTOP_API_HASH" \
+          -D DESKTOP_APP_DISABLE_AUTOUPDATE=ON \
+          -D DESKTOP_APP_DISABLE_CRASH_REPORTS=ON'
+
+      - name: Package.
+        run: |
+          set -e
+          BIN=$(find out -type f -name ShillGramm -perm -u+x | head -1)
+          test -n "$BIN"
+          mkdir -p package/SHILLGRAM
+          cp "$BIN" package/SHILLGRAM/SHILLGRAM
+          strip package/SHILLGRAM/SHILLGRAM
+          curl -sSfL -o xray.zip "https://github.com/XTLS/Xray-core/releases/download/$XRAY_VERSION/Xray-linux-64.zip"
+          unzip -o -j xray.zip xray -d package/SHILLGRAM
+          chmod 0755 package/SHILLGRAM/xray
+          cp LICENSE package/SHILLGRAM/LICENSE
+          NAME="SHILLGRAM-${RELEASE_TAG:-dev}-Linux-x64"
+          NAME="${NAME/-v/-}"
+          tar -C package -cJf "$NAME.tar.xz" SHILLGRAM
+          sha256sum "$NAME.tar.xz"
+          echo "PACKAGE=$NAME.tar.xz" >> $GITHUB_ENV
+
+      - uses: actions/upload-artifact@v7
+        name: Upload artifact.
+        with:
+          name: SHILLGRAM Linux x64
+          path: ${{ env.PACKAGE }}
+
+  release:
+    name: Attach to release
+    needs: [windows, linux]
+    if: always() && (github.event_name == 'push' || inputs.version != '')
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Upload to the release draft.
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -e
+          ls -la dist
+          test -n "$(ls dist)"
+          (cd dist && sha256sum *) | tee SHA256SUMS-desktop.txt
+          if ! gh release view "$RELEASE_TAG" -R "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            gh release create "$RELEASE_TAG" -R "$GITHUB_REPOSITORY" --draft --target "$GITHUB_SHA" \
+              --title "SHILLGRAM ${RELEASE_TAG#v}" --notes "Windows and Linux builds."
+          fi
+          gh release upload "$RELEASE_TAG" -R "$GITHUB_REPOSITORY" --clobber dist/* SHA256SUMS-desktop.txt
