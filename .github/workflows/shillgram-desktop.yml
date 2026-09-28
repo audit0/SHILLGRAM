@@ -158,6 +158,13 @@ jobs:
             ${{ env.TBUILD }}\Libraries
           key: win64-release-libs-${{ env.CACHE_KEY }}
 
+      - name: Bigger page file.
+        uses: al-cheb/configure-pagefile-action@v1.4
+        with:
+          minimum-size: 16GB
+          maximum-size: 32GB
+          disk-root: "D:"
+
       - name: SHILLGRAM build.
         env:
           TDESKTOP_API_ID: ${{ secrets.TDESKTOP_API_ID }}
@@ -175,7 +182,7 @@ jobs:
           -D DESKTOP_APP_DISABLE_CRASH_REPORTS=ON
           if %errorlevel% neq 0 exit /b %errorlevel%
 
-          cmake --build ..\out --config Release --parallel
+          cmake --build ..\out --config Release --parallel 1 -- /p:CL_MPCount=3
 
       - name: Package.
         shell: bash
