@@ -1,8 +1,8 @@
 # AyuGram
 
-![AyuGram Лого](.github/AyuGram.png) ![AyuChan](.github/AyuChan.png)
+![AyuGram Лого](../../.github/AyuGram.png) ![AyuChan](../../.github/AyuChan.png)
 
-[ [English](README.md)  | Русский ]
+[ [English](README-AyuGram.md)  | Русский ]
 
 ## Функции и Фишки
 
@@ -22,13 +22,13 @@
     <summary>Превью</summary>
     <table>
       <tr>
-        <td><img src='.github/demos/demo1.png' width='268' alt='Preferences'></td>
-        <td><img src='.github/demos/demo2.png' width='268' alt='AyuGram Options'></td>
-        <td><img src='.github/demos/demo3.png' width='268' alt='Message Filters'></td>
+        <td><img src='../../.github/demos/demo1.png' width='268' alt='Preferences'></td>
+        <td><img src='../../.github/demos/demo2.png' width='268' alt='AyuGram Options'></td>
+        <td><img src='../../.github/demos/demo3.png' width='268' alt='Message Filters'></td>
       </tr>
       <tr>
-        <td><img src='.github/demos/demo4.png' width='268' alt='Appearance'></td>
-        <td><img src='.github/demos/demo5.png' width='268' alt='Chats'></td>
+        <td><img src='../../.github/demos/demo4.png' width='268' alt='Appearance'></td>
+        <td><img src='../../.github/demos/demo5.png' width='268' alt='Chats'></td>
       </tr>
     </table>
   </details>

@@ -1,156 +1,64 @@
-# AyuGram
+# SHILLGRAM
 
-![AyuGram Logo](.github/AyuGram.png) ![AyuChan](.github/AyuChan.png)
+Неофициальный клиент Telegram для macOS со встроенным SHILLVPN.
+Основан на [AyuGram Desktop](https://github.com/AyuGram/AyuGramDesktop) и [Telegram Desktop](https://github.com/telegramdesktop/tdesktop), работает через официальный Telegram API. Это не официальное приложение Telegram.
 
-[ English  |   [Русский](README-RU.md) ]
+Канал: [@SHILGRAM](https://t.me/SHILGRAM) · поддержка: [@shillsupport](https://t.me/shillsupport)
 
-## Features
+## Скачать
 
-- Full ghost mode (flexible)
-- Messages history
-- Anti-recall
-- Font customization
-- Streamer mode
-- Local Telegram Premium
-- Translator
-- Media preview & quick reaction on force click (macOS)
-- Enhanced appearance
+**macOS 12 и новее, Apple Silicon (M1 и новее):** [последний релиз](../../releases/latest), файл `SHILLGRAM-…-macOS-arm64.zip`.
 
-And many more. Check out our [Documentation](https://docs.ayugram.one/desktop/).
+1. Распакуйте архив и перенесите `SHILLGRAM.app` в «Программы».
+2. Сборка не нотаризована Apple, поэтому при первом запуске macOS спросит подтверждение. Откройте приложение, затем «Системные настройки» → «Конфиденциальность и безопасность» → «Всё равно открыть». На macOS 14 и старше можно просто нажать на приложение правой кнопкой → «Открыть».
+3. Контрольная сумма SHA-256 лежит рядом с архивом в релизе.
 
-<h3>
-  <details>
-    <summary>Preview</summary>
-    <table>
-      <tr>
-        <td><img src='.github/demos/demo1.png' width='268' alt='Preferences'></td>
-        <td><img src='.github/demos/demo2.png' width='268' alt='AyuGram Options'></td>
-        <td><img src='.github/demos/demo3.png' width='268' alt='Message Filters'></td>
-      </tr>
-      <tr>
-        <td><img src='.github/demos/demo4.png' width='268' alt='Appearance'></td>
-        <td><img src='.github/demos/demo5.png' width='268' alt='Chats'></td>
-      </tr>
-    </table>
-  </details>
-</h3>
+Windows, Android и iOS в работе. Первыми о них узнают подписчики канала.
 
-## Downloads
+## Что внутри
 
-### Windows
+- **SHILLVPN встроен в приложение.** Telegram идёт через защищённое соединение ещё до входа в аккаунт. При первом запуске 3 дня бесплатно (одна проба на устройство), дальше подписка SHILLVPN. Одна подписка работает и в SHILLGRAM, и на телефоне, и на компьютере.
+- **Закрепы без лимита.** Первые закрепы хранит Telegram, всё сверх его лимита — это устройство.
+- **Панель ⌘K**: чаты, действия, настройки и шаблоны ответов в одном поиске. Открывается сочетанием ⌘K или жестом «потянуть вниз» двумя пальцами.
+- **Шаблоны ответов** и **отправка «через час» / «завтра в 9:00»** в один клик.
+- **Агенты ИИ**: Claude Code и Codex подключаются к вашему Telegram в один клик через локальный MCP-сервер. Писать они могут только в «Избранное» и в чаты, которые вы сами разрешили.
+- **Тёмная и светлая темы** в стиле SHILLVPN, стекло macOS.
+- Возможности AyuGram: история сообщений, переводчик, фильтры, режим стримера и другие.
 
-#### Official
+## Как зарабатывает проект
 
-You can download prebuilt Windows binary from [Releases tab](https://github.com/AyuGram/AyuGramDesktop/releases) or from
-the [Telegram channel](https://t.me/AyuGramReleases).
+SHILLGRAM бесплатный, все функции клиента бесплатные. Проект зарабатывает на подписке SHILLVPN: после трёх бесплатных дней встроенный VPN работает по подписке, её можно продлить прямо в приложении. Ещё есть партнёрская программа SHILLVPN. Рекламы в чатах нет, данные пользователей не продаются и не собираются.
 
-#### Winget
+## Приватность
 
-```bash
-winget install RadolynLabs.AyuGramDesktop
-```
+- Переписка идёт напрямую между приложением и серверами Telegram.
+- Ссылка подписки SHILLVPN и ключи хранятся в Связке ключей macOS.
+- Для пробного периода приложение отправляет на сайт не идентификатор устройства, а его хэш.
+- Мост агентов ИИ слушает только `127.0.0.1` и пускает только с токеном из Связки ключей.
 
-#### Scoop
+## Сборка из исходников
 
-```bash
-scoop bucket add extras
-scoop install ayugram
-```
+Сборка такая же, как у Telegram Desktop: [docs/building-mac.md](docs/building-mac.md). Отличия:
 
-#### Self-built
+- нужны свои `api_id` и `api_hash` с [my.telegram.org](https://my.telegram.org), они передаются при сборке: `-DTDESKTOP_API_ID=… -DTDESKTOP_API_HASH=…`. В исходниках ключей нет;
+- ядро VPN — [Xray-core](https://github.com/XTLS/Xray-core) 26.9.9 или новее. Положите бинарник в `../Libraries/xray/xray` рядом с папкой исходников или укажите путь: `-DSHILLGRAMM_VPN_CORE=/path/to/xray`.
 
-Follow [official guide](https://github.com/AyuGram/AyuGramDesktop/blob/dev/docs/building-win-x64.md) if you want to
-build by yourself.
+## Лицензия
 
-### macOS
+Код распространяется под [GPLv3](LICENSE) с исключением для OpenSSL ([LEGAL](LEGAL)), как Telegram Desktop и AyuGram. Xray-core распространяется под [MPL-2.0](https://github.com/XTLS/Xray-core/blob/main/LICENSE).
 
-#### Official
+Название SHILLGRAM и значок под лицензию не входят. Сборки из этих исходников с другими ключами API не должны называться SHILLGRAM.
 
-You can download prebuilt macOS package from [Releases tab](https://github.com/AyuGram/AyuGramDesktop/releases).
+Исходный README AyuGram: [docs/upstream/README-AyuGram.md](docs/upstream/README-AyuGram.md).
 
-#### Homebrew
+---
 
-```bash
-brew install --cask ayugram
-```
+## English
 
-### Arch Linux
+**SHILLGRAM** is an unofficial Telegram client for macOS with SHILLVPN built in, based on AyuGram Desktop and Telegram Desktop. It uses the official Telegram API and is not affiliated with Telegram.
 
-#### From source (recommended)
-
-Install `ayugram-desktop` from [AUR](https://aur.archlinux.org/packages/ayugram-desktop).
-
-#### Prebuilt binaries
-
-Install `ayugram-desktop-bin` from [AUR](https://aur.archlinux.org/packages/ayugram-desktop-bin).
-
-Note: these binaries aren't officially maintained by us.
-
-### NixOS
-
-#### Flake (recommended)
-
-Install `ayugram-desktop` from [ndfined-crp/ayugram-desktop](https://github.com/ndfined-crp/ayugram-desktop)
-
-#### Nixpkgs
-
-Install `ayugram-desktop` from [nixpkgs](https://search.nixos.org/packages?channel=unstable&show=ayugram-desktop)
-
-### ALT Linux
-
-[Sisyphus](https://packages.altlinux.org/en/sisyphus/srpms/ayugram-desktop/)
-
-### Gentoo Linux
-
-See [this repository](https://codeberg.org/OverLessArtem/ayugram-ebuild-gentoo) for installation manual.
-
-### Void Linux
-See [this repository](https://codeberg.org/OverLessArtem/ayugram-template-void) for installation manual.
-
-### EPM
-
-`epm play ayugram`
-
-### Fedora
-
-From [RPM Fusion](https://admin.rpmfusion.org/pkgdb/package/free/ayugram-desktop/) repository.
-
-```bash
-dnf install ayugram-desktop
-```
-
-### Any other Linux distro
-
-Flatpak: https://github.com/0FL01/AyuGramDesktop-flatpak
-
-Or follow the [official guide](https://github.com/AyuGram/AyuGramDesktop/blob/dev/docs/building-linux.md).
-
-## Donation
-
-Enjoy using **AyuGram**? Consider sending us a tip!
-
-[Here's available methods.](https://docs.ayugram.one/donate/)
-
-## Credits
-
-### Telegram clients
-
-- [Telegram Desktop](https://github.com/telegramdesktop/tdesktop)
-- [Kotatogram](https://github.com/kotatogram/kotatogram-desktop)
-- [64Gram](https://github.com/TDesktop-x64/tdesktop)
-- [Forkgram](https://github.com/forkgram/tdesktop)
-
-### Libraries used
-
-- [JSON for Modern C++](https://github.com/nlohmann/json)
-- [SQLite](https://github.com/sqlite/sqlite)
-- [sqlite_orm](https://github.com/fnc12/sqlite_orm)
-- [androidx sources](https://github.com/androidx/androidx)
-
-### Icons
-
-- [Solar Icon Set](https://www.figma.com/community/file/1166831539721848736)
-
-### Bots
-
-- [TelegramDB](https://t.me/tgdatabase) for username lookup by ID (until closing free inline mode at 2 April 2026)
+- Download: [latest release](../../releases/latest), macOS 12+ on Apple Silicon. The build is not notarized: on first launch allow it in System Settings → Privacy & Security → Open Anyway.
+- Inside: built-in SHILLVPN (3 free days per device, then a SHILLVPN subscription), pins beyond Telegram's limit, the ⌘K command palette, reply templates, one-click scheduled sending, a local MCP bridge for Claude Code and Codex, dark and light themes.
+- Business model: the client is free; the project earns from SHILLVPN subscriptions and the SHILLVPN partner program. No ads in chats, no data sold.
+- Build: as Telegram Desktop ([docs/building-mac.md](docs/building-mac.md)) with your own `api_id`/`api_hash` and an Xray-core binary.
+- License: GPLv3 with the OpenSSL exception; Xray-core is MPL-2.0. The SHILLGRAM name and icon are not licensed for other builds.
