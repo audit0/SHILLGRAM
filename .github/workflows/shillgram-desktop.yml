@@ -48,6 +48,24 @@ jobs:
         shell: cmd
 
     steps:
+      - name: Free up disk space.
+        shell: pwsh
+        run: |
+          Get-PSDrive C, D | Format-Table Name, @{n='FreeGB';e={[math]::Round($_.Free/1GB,1)}}
+          $dirs = @(
+            'C:\Android', 'C:\Program Files\dotnet', 'C:\ghcup', 'C:\cabal', 'C:\tools\ghc',
+            'C:\hostedtoolcache\windows\CodeQL', 'C:\hostedtoolcache\windows\go',
+            'C:\hostedtoolcache\windows\Ruby', 'C:\hostedtoolcache\windows\PyPy',
+            'C:\hostedtoolcache\windows\node', 'C:\hostedtoolcache\windows\Java_Temurin-Hotspot_jdk',
+            'C:\Program Files\MongoDB', 'C:\Program Files\MySQL', 'C:\Program Files\PostgreSQL',
+            'C:\Miniconda', 'C:\Julia', 'C:\Rust', 'C:\Users\runneradmin\.rustup',
+            'C:\Program Files (x86)\Android', 'C:\SeleniumWebDrivers', 'C:\Program Files\Google\Chrome',
+            'C:\Program Files\Mozilla Firefox', 'C:\Program Files (x86)\Microsoft\Edge'
+          )
+          $jobs = foreach ($d in $dirs) { if (Test-Path $d) { Start-Job -ArgumentList $d { param($p) cmd /c "rmdir /s /q `"$p`"" } } }
+          if ($jobs) { $jobs | Wait-Job | Out-Null }
+          Get-PSDrive C, D | Format-Table Name, @{n='FreeGB';e={[math]::Round($_.Free/1GB,1)}}
+
       - name: Prepare directories.
         run: |
           mkdir %userprofile%\TBuild\Libraries
