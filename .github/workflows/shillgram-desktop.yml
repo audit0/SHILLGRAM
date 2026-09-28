@@ -16,6 +16,11 @@ on:
         description: 'Release tag to attach the builds to (for example v1.1). Empty: artifacts only.'
         required: false
         default: ''
+      platforms:
+        description: 'Which builds to run.'
+        type: choice
+        options: [all, windows, linux]
+        default: all
   push:
     tags:
       - 'v*'
@@ -31,6 +36,7 @@ jobs:
 
   windows:
     name: Windows x64
+    if: github.event_name == 'push' || inputs.platforms != 'linux'
     runs-on: windows-latest
     timeout-minutes: 358
 
@@ -68,6 +74,19 @@ jobs:
 
           git config --global user.email "ci@example.com"
           git config --global user.name "CI"
+
+      - name: Install ATL for the 14.44 toolset.
+        shell: pwsh
+        run: |
+          $installer = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer"
+          $vs = & "$installer\vswhere.exe" -latest -property installationPath
+          $p = Start-Process -FilePath "$installer\vs_installer.exe" -Wait -PassThru -ArgumentList `
+            'modify','--installPath',"`"$vs`"", `
+            '--add','Microsoft.VisualStudio.Component.VC.14.44.17.14.ATL', `
+            '--quiet','--norestart','--nocache'
+          if ($p.ExitCode -ne 0 -and $p.ExitCode -ne 3010) { exit $p.ExitCode }
+          $atl = Get-ChildItem "$vs\VC\Tools\MSVC\14.44.*\atlmfc\include\atlbase.h" -ErrorAction SilentlyContinue
+          if (-not $atl) { Write-Error "ATL for 14.44 is still missing"; exit 1 }
 
       - uses: Eden-CI/msvc-dev-cmd@master
         name: Native Tools Command Prompt.
@@ -164,6 +183,7 @@ jobs:
 
   linux:
     name: Linux x64
+    if: github.event_name == 'push' || inputs.platforms != 'windows'
     runs-on: ubuntu-latest
     timeout-minutes: 358
 
