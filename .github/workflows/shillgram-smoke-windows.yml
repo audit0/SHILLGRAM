@@ -1,0 +1,56 @@
+name: SHILLGRAM Windows smoke test
+
+# Downloads the released Windows build, starts it for 40 seconds and checks that it
+# stays alive and creates its data folder. Uploads a screenshot of the desktop.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release tag'
+        required: true
+        default: 'v1.0'
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - name: Download.
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: pwsh
+        run: |
+          gh release download "${{ inputs.version }}" -R $env:GITHUB_REPOSITORY -p "*Windows-x64.zip" -D dl
+          Expand-Archive (Get-ChildItem dl\*.zip).FullName -DestinationPath app
+          Get-ChildItem app\SHILLGRAM
+
+      - name: Run for 40 seconds.
+        shell: pwsh
+        run: |
+          $work = Join-Path $env:RUNNER_TEMP 'shillgram-work'
+          New-Item -ItemType Directory -Force $work | Out-Null
+          $p = Start-Process -FilePath app\SHILLGRAM\SHILLGRAM.exe -ArgumentList '-workdir', $work -PassThru
+          Start-Sleep -Seconds 40
+          Add-Type -AssemblyName System.Windows.Forms, System.Drawing
+          $b = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+          $bmp = New-Object System.Drawing.Bitmap $b.Width, $b.Height
+          [System.Drawing.Graphics]::FromImage($bmp).CopyFromScreen($b.Location, [System.Drawing.Point]::Empty, $b.Size)
+          New-Item -ItemType Directory -Force shot | Out-Null
+          $bmp.Save('shot\desktop.png')
+          $alive = -not $p.HasExited
+          Write-Host "alive=$alive"
+          Get-ChildItem -Recurse $work | Select-Object -First 20 | ForEach-Object { Write-Host $_.FullName }
+          Get-Process | Where-Object { $_.Name -in 'SHILLGRAM','xray' } | Format-Table Name, Id, WorkingSet64
+          if (Test-Path (Join-Path $work 'log.txt')) { Get-Content (Join-Path $work 'log.txt') -Tail 30 }
+          if (-not $alive) { Write-Error "SHILLGRAM exited with code $($p.ExitCode)"; exit 1 }
+          Stop-Process -Id $p.Id -Force
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: screenshot
+          path: shot\
