@@ -2237,6 +2237,8 @@ PRIVATE
     shillgramm/shill_site_panel.h
     shillgramm/shill_snooze.cpp
     shillgramm/shill_snooze.h
+    shillgramm/shill_templates.cpp
+    shillgramm/shill_templates.h
     shillgramm/shill_version.h
     shillgramm/shill_vpn.cpp
     shillgramm/shill_vpn.h

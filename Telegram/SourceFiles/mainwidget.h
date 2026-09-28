@@ -114,6 +114,8 @@ public:
 	[[nodiscard]] not_null<Window::SessionController*> controller() const;
 	[[nodiscard]] Window::SeparateId windowId() const;
 	[[nodiscard]] bool isPrimary() const;
+	// ShillGramm: reply templates go into its message field.
+	[[nodiscard]] HistoryWidget *shillHistoryWidget() const;
 	[[nodiscard]] bool isMainSectionShown() const;
 	[[nodiscard]] bool isThirdSectionShown() const;
 

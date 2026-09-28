@@ -2013,6 +2013,10 @@ Window::SeparateId MainWidget::windowId() const {
 	return _controller->windowId();
 }
 
+HistoryWidget *MainWidget::shillHistoryWidget() const {
+	return _history.get();
+}
+
 bool MainWidget::isPrimary() const {
 	return _controller->isPrimary();
 }

@@ -6,6 +6,7 @@ For license and copyright information please follow this link:
 https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "menu/menu_send.h"
+#include "lang/lang_instance.h"
 
 #include "menu/menu_checked_action.h"
 
@@ -763,6 +764,27 @@ FillMenuResult FillSendMenu(
 				? tr::lng_reminder_message(tr::now)
 				: tr::lng_schedule_message(tr::now)),
 			[=] { action({ .type = ActionType::Schedule }, details); },
+			&icons.menuSchedule);
+	}
+	if (sending
+		&& (type == Type::Scheduled || type == Type::ScheduledToUser)) {
+		// ShillGramm: one click instead of the calendar for the usual two.
+		const auto ru = Lang::GetInstance().id().startsWith(u"ru"_q);
+		const auto inHour = base::unixtime::now() + 3600;
+		const auto tomorrow = base::unixtime::serialize(QDateTime(
+			QDate::currentDate().addDays(1),
+			QTime(9, 0)));
+		menu->addAction(
+			ru ? u"Отправить через час"_q : u"Send in an hour"_q,
+			[=] { action(
+				{ Api::SendOptions{ .scheduled = inHour } },
+				details); },
+			&icons.menuSchedule);
+		menu->addAction(
+			ru ? u"Отправить завтра в 9:00"_q : u"Send tomorrow at 9:00"_q,
+			[=] { action(
+				{ Api::SendOptions{ .scheduled = tomorrow } },
+				details); },
 			&icons.menuSchedule);
 	}
 	if (sending && type == Type::ScheduledToUser) {

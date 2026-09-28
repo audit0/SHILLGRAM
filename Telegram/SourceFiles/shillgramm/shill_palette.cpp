@@ -5,6 +5,7 @@ ShillGramm: Cmd+K command palette - chats, actions and settings in one place.
 
 #include "shillgramm/shill_panel.h"
 #include "shillgramm/shill_snooze.h"
+#include "shillgramm/shill_templates.h"
 #include "boxes/peer_list_controllers.h"
 #include "calls/calls_box_controller.h"
 #include "core/application.h"
@@ -443,6 +444,19 @@ void PaletteContent::addActions(const QString &query) {
 		}
 	}
 
+	// Reply templates: by name once something is typed, into the open chat.
+	if (!query.isEmpty() && controller->activeChatCurrent().history()) {
+		for (const auto &entry : Templates()) {
+			const auto text = entry.text;
+			add(
+				entry.title,
+				&st::menuIconReply,
+				u"template шаблон "_q + entry.text.left(200),
+				[=] { InsertTemplate(controller, text); },
+				Tr("Template", "Шаблон"));
+		}
+	}
+
 	// General actions.
 	add(
 		tr::lng_saved_messages(tr::now),
@@ -467,6 +481,11 @@ void PaletteContent::addActions(const QString &query) {
 		&st::menuIconPhone,
 		u"calls phone звонки телефон"_q,
 		[=] { ::Calls::ShowCallsBox(controller); });
+	add(
+		Tr("Reply templates", "Шаблоны ответов"),
+		&st::menuIconEdit,
+		u"templates replies answers шаблоны ответы заготовки"_q,
+		[=] { ShowTemplatesBox(controller); });
 	add(
 		tr::lng_menu_settings(tr::now),
 		&st::menuIconSettings,
