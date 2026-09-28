@@ -68,6 +68,8 @@ constexpr auto kMaxRestarts = 5;
 constexpr auto kRefreshInterval = crl::time(6 * 3600 * 1000);
 constexpr auto kFetchTimeout = 15 * 1000;
 constexpr auto kTrialPolls = 30; // x 2 s: the site's worker issues the trial.
+constexpr auto kShopInfoTtl = crl::time(6 * 3600 * 1000);
+constexpr auto kRemindBefore = TimeId(24 * 3600);
 constexpr auto kTermsUrl = "https://shillvpn.site/legal/terms";
 
 const auto kTokenRe = QRegularExpression(
@@ -97,6 +99,38 @@ const auto kTokenRe = QRegularExpression(
 	server.close();
 	return result;
 }
+
+[[nodiscard]] QString HoursText(int hours) {
+	if (!Lang::GetInstance().id().startsWith(u"ru"_q)) {
+		return QString::number(hours) + (hours == 1 ? u" hour"_q : u" hours"_q);
+	}
+	const auto mod10 = hours % 10;
+	const auto mod100 = hours % 100;
+	const auto word = (mod10 == 1 && mod100 != 11)
+		? u"час"_q
+		: (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14))
+		? u"часа"_q
+		: u"часов"_q;
+	return QString::number(hours) + ' ' + word;
+}
+
+// Every page of the site opened from the app carries where it came from,
+// so the site's statistics show what the app sells.
+[[nodiscard]] QString SiteUrl(
+		const QString &path,
+		const QString &campaign,
+		const QString &fragment = QString()) {
+	auto result = QString::fromLatin1(kSite)
+		+ path
+		+ u"?utm_source=shillgram&utm_medium=app&utm_campaign="_q
+		+ (campaign.isEmpty() ? u"app"_q : campaign);
+	if (!fragment.isEmpty()) {
+		result += '#' + fragment;
+	}
+	return result;
+}
+
+void ShowRenewBox(bool ended, TimeId left, std::optional<Vpn::ShopInfo> info);
 
 [[nodiscard]] QString DaysText(int days) {
 	if (!Lang::GetInstance().id().startsWith(u"ru"_q)) {
@@ -358,7 +392,8 @@ Vpn &Vpn::Instance() {
 
 Vpn::Vpn()
 : _restartTimer([=] { launch(); })
-, _refreshTimer([=] { refresh(); }) {
+, _refreshTimer([=] { refresh(); })
+, _expiryTimer([=] { refresh(); }) {
 	loadFlags();
 	loadSecrets();
 	_state = _token.isEmpty() ? VpnState::None : VpnState::Off;
@@ -381,6 +416,8 @@ void Vpn::start() {
 	} else if (IsOurProxy(Core::App().settings().proxy().selected())) {
 		useProxy(false); // The core is not coming: do not wait on its port.
 	}
+	scheduleExpiryCheck();
+	QTimer::singleShot(10000, [] { Vpn::Instance().checkReminder(); });
 }
 
 void Vpn::stop() {
@@ -431,6 +468,11 @@ QString Vpn::statusText() const {
 	case VpnState::None:
 		return Tr("Not connected", "Не подключён");
 	case VpnState::Off:
+		if (accessEnded()) {
+			return Tr(
+				"Access ended · Telegram connects directly",
+				"Доступ закончился · Telegram подключается напрямую");
+		}
 		return Tr("Off", "Выключен")
 			+ (left.isEmpty() ? QString() : u" · "_q + left);
 	case VpnState::Loading:
@@ -481,24 +523,110 @@ bool Vpn::hasCabinet() const {
 	return !_cabinetKey.isEmpty();
 }
 
-QString Vpn::cabinetUrl() const {
+QString Vpn::cabinetUrl(const QString &campaign) const {
 	// The key goes in the fragment: it stays in the browser.
-	return QString::fromLatin1(kSite) + u"/app/buy/#k="_q + _cabinetKey;
+	return SiteUrl(u"/app/buy/"_q, campaign, u"k="_q + _cabinetKey);
+}
+
+bool Vpn::accessEnded() const {
+	return _expiresAt && (_expiresAt <= base::unixtime::now());
+}
+
+void Vpn::scheduleExpiryCheck() {
+	const auto now = base::unixtime::now();
+	if (!_expiresAt || _expiresAt <= now) {
+		_expiryTimer.cancel();
+		return;
+	}
+	// A day before the end (the reminder) and at the end itself.
+	const auto left = _expiresAt - now;
+	const auto next = (left > kRemindBefore) ? (left - kRemindBefore) : left;
+	_expiryTimer.callOnce(
+		(crl::time(std::min(next, TimeId(7 * 86400))) + 5) * 1000);
+}
+
+void Vpn::checkReminder() {
+	if (_token.isEmpty() || !_expiresAt) {
+		return;
+	}
+	const auto now = base::unixtime::now();
+	const auto left = _expiresAt - now;
+	const auto ended = (left <= 0);
+	if (!ended && left > kRemindBefore) {
+		return;
+	}
+	const auto due = ended
+		? (!_remindedAt
+			|| _remindedAt < _expiresAt
+			|| now - _remindedAt >= 12 * 3600)
+		: (!_remindedAt || now - _remindedAt >= 20 * 3600);
+	if (!due || !Core::App().activePrimaryWindow()) {
+		return;
+	}
+	_remindedAt = now;
+	saveFlags();
+	loadShopInfo([=](std::optional<ShopInfo> info) {
+		ShowRenewBox(ended, left, info);
+	});
+}
+
+void Vpn::loadShopInfo(Fn<void(std::optional<ShopInfo>)> done) {
+	if (_shopInfo && crl::now() - _shopInfoAt < kShopInfoTtl) {
+		done(_shopInfo);
+		return;
+	}
+	api(QJsonObject{
+		{ u"action"_q, u"shop_info"_q },
+	}, [=](std::optional<QJsonObject> reply) {
+		if (!reply || !reply->value(u"ok"_q).toBool()) {
+			done(_shopInfo);
+			return;
+		}
+		auto info = ShopInfo();
+		for (const auto &value : reply->value(u"plans"_q).toArray()) {
+			const auto plan = value.toObject();
+			const auto days = plan.value(u"days"_q).toInt();
+			const auto price = plan.value(u"price_rub"_q).toInt();
+			if (days > 0 && price > 0) {
+				info.plans.push_back({
+					.title = plan.value(u"title"_q).toString(),
+					.days = days,
+					.priceRub = price,
+				});
+			}
+		}
+		info.referralDays = reply->value(u"referral_days"_q).toInt();
+		info.devices = reply->value(u"devices"_q).toInt();
+		if (!info.plans.empty()) {
+			_shopInfo = std::move(info);
+			_shopInfoAt = crl::now();
+		}
+		done(_shopInfo);
+	});
 }
 
 void Vpn::api(
 		QJsonObject request,
-		Fn<void(std::optional<QJsonObject>)> done) {
-	if (!_apiNetwork) {
-		_apiNetwork = new QNetworkAccessManager();
-		_apiNetwork->setProxy(QNetworkProxy(QNetworkProxy::NoProxy));
+		Fn<void(std::optional<QJsonObject>)> done,
+		bool viaCore) {
+	auto &manager = viaCore ? _apiTunnel : _apiNetwork;
+	if (!manager) {
+		manager = new QNetworkAccessManager();
 	}
+	manager->setProxy(viaCore
+		? QNetworkProxy(
+			QNetworkProxy::Socks5Proxy,
+			u"127.0.0.1"_q,
+			quint16(_port),
+			_user,
+			_password)
+		: QNetworkProxy(QNetworkProxy::NoProxy));
 	auto http = QNetworkRequest(
 		QUrl(QString::fromLatin1(kSite) + u"/app/api"_q));
 	http.setHeader(QNetworkRequest::ContentTypeHeader, u"application/json"_q);
 	http.setHeader(QNetworkRequest::UserAgentHeader, u"SHILLGRAM/1.0"_q);
 	http.setTransferTimeout(kFetchTimeout);
-	const auto reply = _apiNetwork->post(
+	const auto reply = manager->post(
 		http,
 		QJsonDocument(request).toJson(QJsonDocument::Compact));
 	QObject::connect(reply, &QNetworkReply::finished, [=] {
@@ -514,6 +642,12 @@ void Vpn::api(
 			});
 		} else if (document.isObject()) {
 			done(document.object());
+		} else if (!viaCore
+			&& _core
+			&& _port
+			&& _state.current() == VpnState::On) {
+			// The site is out of reach directly: through our own tunnel.
+			api(request, done, true);
 		} else {
 			done(std::nullopt);
 		}
@@ -674,17 +808,22 @@ void Vpn::setEnabled(bool enabled) {
 			launch();
 		}
 	} else {
-		_restartTimer.cancel();
-		_stopping = true;
-		if (const auto core = _core.data()) {
-			core->disconnect();
-			core->terminate();
-			core->deleteLater();
-		}
-		_stopping = false;
-		useProxy(false);
+		stopCore();
 		setState(VpnState::Off);
 	}
+}
+
+void Vpn::stopCore() {
+	_restartTimer.cancel();
+	if (const auto core = _core.data()) {
+		_stopping = true;
+		core->disconnect();
+		core->terminate();
+		core->deleteLater();
+		_stopping = false;
+	}
+	_core = nullptr;
+	useProxy(false);
 }
 
 void Vpn::refresh() {
@@ -708,13 +847,19 @@ void Vpn::refresh() {
 			return;
 		}
 		saveSecrets();
-		if (!_enabled) {
+		if (accessEnded()) {
+			// Not a hostage: without paid time Telegram goes direct.
+			stopCore();
+			setState(VpnState::Off);
+		} else if (!_enabled) {
 			setState(VpnState::Off);
 		} else if (_body != was || !_core) {
 			launch();
 		} else {
 			setState(VpnState::On); // Same list: refreshes the days left.
 		}
+		scheduleExpiryCheck();
+		checkReminder();
 	});
 }
 
@@ -904,6 +1049,10 @@ QString Vpn::corePath() const {
 void Vpn::launch() {
 	if (_stopping || !_enabled || _entries.empty()) {
 		return;
+	} else if (accessEnded()) {
+		stopCore();
+		setState(VpnState::Off);
+		return;
 	}
 	const auto path = corePath();
 	if (path.isEmpty()) {
@@ -1086,6 +1235,7 @@ void Vpn::saveFlags() const {
 		file.write(QJsonDocument(QJsonObject{
 			{ u"enabled"_q, _enabled },
 			{ u"expires"_q, qint64(_expiresAt) },
+			{ u"reminded"_q, qint64(_remindedAt) },
 		}).toJson(QJsonDocument::Compact));
 	}
 }
@@ -1098,6 +1248,7 @@ void Vpn::loadFlags() {
 	const auto object = QJsonDocument::fromJson(file.readAll()).object();
 	_enabled = object.value(u"enabled"_q).toBool();
 	_expiresAt = TimeId(object.value(u"expires"_q).toInteger());
+	_remindedAt = TimeId(object.value(u"reminded"_q).toInteger());
 }
 
 void VpnBox(not_null<Ui::GenericBox*> box) {
@@ -1176,7 +1327,7 @@ void VpnBox(not_null<Ui::GenericBox*> box) {
 		box->addSkip(st::boxLittleSkip);
 		addLink(
 			rpl::single(Tr("Buy SHILLVPN", "Купить SHILLVPN")),
-			[] { OpenSitePanel(QString::fromLatin1(kSite) + u"/app/buy/"_q); });
+			[] { OpenSitePanel(SiteUrl(u"/app/buy/"_q, u"buy"_q)); });
 		box->addSkip(st::boxLittleSkip);
 		box->addRow(object_ptr<Ui::FlatLabel>(
 			box,
@@ -1232,8 +1383,31 @@ void VpnBox(not_null<Ui::GenericBox*> box) {
 		rpl::single(Tr("Renew subscription", "Продлить подписку")),
 		[=] {
 			box->closeBox();
-			OpenVpnRenew(nullptr);
+			OpenVpnRenew(nullptr, u"box"_q);
 		});
+	const auto window = Core::App().activePrimaryWindow();
+	if (!vpn.hasCabinet() && window && window->sessionController()) {
+		// The bot's referral program belongs to the Telegram account whose
+		// subscription this is; the app's own site cabinet has none.
+		const auto text = box->lifetime().make_state<rpl::variable<QString>>(
+			Tr(
+				"Invite a friend: bonus days for both of you",
+				"Пригласить друга: бонусные дни и вам, и ему"));
+		const auto weak = base::make_weak(box);
+		Vpn::Instance().loadShopInfo([=](std::optional<Vpn::ShopInfo> info) {
+			if (weak.get() && info && info->referralDays > 0) {
+				*text = Tr(
+					"Invite a friend: +%1 to their first payment, bonus "
+					"days for you",
+					"Пригласить друга: ему +%1 к первой оплате, вам "
+					"бонусные дни").arg(DaysText(info->referralDays));
+			}
+		});
+		addLink(text->value(), [=] {
+			box->closeBox();
+			OpenVpnInvite(nullptr);
+		});
+	}
 	addLink(
 		rpl::single(Tr(
 			"Connect a phone or another device",
@@ -1272,10 +1446,13 @@ void ShowVpnBox(not_null<Window::SessionController*> controller) {
 	controller->show(Box(VpnBox));
 }
 
-void OpenVpnRenew(Window::SessionController *controller) {
+void OpenVpnRenew(
+		Window::SessionController *controller,
+		const QString &campaign) {
+	const auto source = campaign.isEmpty() ? u"renew"_q : campaign;
 	if (Vpn::Instance().hasCabinet()) {
 		// The app's own trial is a site account, not the Telegram one.
-		OpenSitePanel(Vpn::Instance().cabinetUrl());
+		OpenSitePanel(Vpn::Instance().cabinetUrl(source));
 		return;
 	}
 	if (!controller) {
@@ -1291,9 +1468,100 @@ void OpenVpnRenew(Window::SessionController *controller) {
 				.sessionWindow = base::make_weak(controller),
 			}));
 	} else {
-		OpenSitePanel(QString::fromLatin1(kSite) + u"/app/buy/"_q);
+		OpenSitePanel(SiteUrl(u"/app/buy/"_q, source));
 	}
 }
+
+void OpenVpnInvite(Window::SessionController *controller) {
+	if (!controller) {
+		if (const auto window = Core::App().activePrimaryWindow()) {
+			controller = window->sessionController();
+		}
+	}
+	if (controller) {
+		UrlClickHandler::Open(
+			u"https://t.me/%1?start=invite"_q.arg(QString::fromLatin1(kBot)),
+			QVariant::fromValue(ClickHandlerContext{
+				.sessionWindow = base::make_weak(controller),
+			}));
+	}
+}
+
+namespace {
+
+void RenewBox(
+		not_null<Ui::GenericBox*> box,
+		bool ended,
+		TimeId left,
+		std::optional<Vpn::ShopInfo> info) {
+	const auto ru = Lang::GetInstance().id().startsWith(u"ru"_q);
+	box->setTitle(rpl::single(u"SHILLVPN"_q));
+	box->setWidth(st::boxWideWidth);
+	const auto hours = std::max(1, int((left + 3599) / 3600));
+	const auto text = ended
+		? Tr(
+			"Your SHILLVPN access has ended. Telegram now connects "
+			"directly and may not open on some networks. Renew to bring "
+			"the protection back.",
+			"Доступ к SHILLVPN закончился. Telegram подключается напрямую "
+			"и в некоторых сетях может не открываться. Продлите, чтобы "
+			"защита вернулась.")
+		: Tr(
+			"SHILLVPN access ends in %1. Renew so that Telegram in "
+			"SHILLGRAM and VPN on your other devices keep working "
+			"without a break.",
+			"Доступ к SHILLVPN закончится через %1. Продлите, чтобы "
+			"Telegram в SHILLGRAM и VPN на других устройствах работали "
+			"без перерыва.").arg(HoursText(hours));
+	box->addRow(object_ptr<Ui::FlatLabel>(
+		box,
+		rpl::single(text),
+		st::boxLabel));
+	if (info && !info->plans.empty()) {
+		// The longest plan first: the lowest price per month.
+		auto plans = info->plans;
+		ranges::sort(plans, ranges::greater(), &Vpn::Plan::days);
+		const auto title = [&](const Vpn::Plan &plan) {
+			const auto months = std::max(1, int(std::lround(plan.days / 30.)));
+			return (ru && !plan.title.isEmpty())
+				? plan.title
+				: (QString::number(months)
+					+ (months == 1 ? u" month"_q : u" months"_q));
+		};
+		const auto &best = plans.front();
+		const auto &cheapest = plans.back();
+		const auto perMonth = int(std::lround(best.priceRub * 30. / best.days));
+		auto lines = (best.days > 45)
+			? Tr("%1 — %2 ₽, about %3 ₽ a month", "%1 — %2 ₽, это около %3 ₽ в месяц")
+				.arg(title(best))
+				.arg(best.priceRub)
+				.arg(perMonth)
+			: Tr("%1 — %2 ₽", "%1 — %2 ₽").arg(title(best)).arg(best.priceRub);
+		if (cheapest.days != best.days) {
+			lines += '\n' + Tr("%1 — %2 ₽", "%1 — %2 ₽")
+				.arg(title(cheapest))
+				.arg(cheapest.priceRub);
+		}
+		box->addSkip(st::boxLittleSkip);
+		box->addRow(object_ptr<Ui::FlatLabel>(
+			box,
+			rpl::single(lines),
+			st::boxDividerLabel));
+	}
+	box->addButton(rpl::single(Tr("Renew", "Продлить")), [=] {
+		box->closeBox();
+		OpenVpnRenew(nullptr, ended ? u"ended"_q : u"reminder"_q);
+	});
+	box->addButton(rpl::single(Tr("Later", "Позже")), [=] {
+		box->closeBox();
+	});
+}
+
+void ShowRenewBox(bool ended, TimeId left, std::optional<Vpn::ShopInfo> info) {
+	Ui::show(Box(RenewBox, ended, left, info));
+}
+
+} // namespace
 
 #ifndef Q_OS_MAC
 

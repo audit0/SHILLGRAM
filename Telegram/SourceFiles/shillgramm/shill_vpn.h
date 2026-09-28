@@ -74,7 +74,27 @@ public:
 	// The access came from the app's own trial: renewing goes to its
 	// cabinet on the site, not to the Telegram account's Mini App.
 	[[nodiscard]] bool hasCabinet() const;
-	[[nodiscard]] QString cabinetUrl() const;
+	[[nodiscard]] QString cabinetUrl(const QString &campaign) const;
+
+	// The paid time is over (the server's expire already counts the grace
+	// days): the tunnel is stopped and Telegram connects directly.
+	[[nodiscard]] bool accessEnded() const;
+	// Once a day before the end and every 12 hours after it: a box with
+	// the live prices and «Продлить».
+	void checkReminder();
+
+	struct Plan {
+		QString title;
+		int days = 0;
+		int priceRub = 0;
+	};
+	struct ShopInfo {
+		std::vector<Plan> plans;
+		int referralDays = 0;
+		int devices = 0;
+	};
+	// shop_info of the site, kept for 6 hours; done(nullopt) when unknown.
+	void loadShopInfo(Fn<void(std::optional<ShopInfo>)> done);
 
 	// Pages on the site for this subscription: connect another device
 	// (INCY, Happ...) and renew.
@@ -96,7 +116,8 @@ private:
 	// POST to shillvpn.site/app/api; done(nullopt) when out of reach.
 	void api(
 		QJsonObject request,
-		Fn<void(std::optional<QJsonObject> reply)> done);
+		Fn<void(std::optional<QJsonObject> reply)> done,
+		bool viaCore = false);
 	void requestTrial(
 		const QString &device,
 		qint64 hour,
@@ -104,6 +125,8 @@ private:
 		Fn<void(QString error)> finish);
 	void waitTrialReady(int attempt, Fn<void(QString error)> done);
 	void launch();
+	void stopCore();
+	void scheduleExpiryCheck();
 	void waitForPort(int attempt);
 	void coreFinished();
 	void useProxy(bool use);
@@ -124,11 +147,15 @@ private:
 	bool _enabled = false;
 
 	QString _cabinetKey; // Site cabinet of the app's own trial.
+	TimeId _remindedAt = 0;
+	std::optional<ShopInfo> _shopInfo;
+	crl::time _shopInfoAt = 0;
 	bool _trialBusy = false;
 
 	QPointer<QProcess> _core;
 	QNetworkAccessManager *_network = nullptr;
 	QNetworkAccessManager *_apiNetwork = nullptr;
+	QNetworkAccessManager *_apiTunnel = nullptr;
 	int _port = 0;
 	QString _user;
 	QString _password;
@@ -136,6 +163,7 @@ private:
 	bool _stopping = false;
 	base::Timer _restartTimer;
 	base::Timer _refreshTimer;
+	base::Timer _expiryTimer;
 
 	rpl::variable<VpnState> _state = VpnState::None;
 	QString _error;
@@ -148,7 +176,12 @@ void ShowVpnBox(not_null<Window::SessionController*> controller);
 
 // Renew: the SHILLVPN Mini App inside the app when logged in, the site
 // cabinet otherwise.
-void OpenVpnRenew(Window::SessionController *controller);
+// campaign: where the purchase started, for the site's utm_campaign.
+void OpenVpnRenew(
+	Window::SessionController *controller,
+	const QString &campaign = QString());
+// The bot's «Пригласить друга» screen (a Telegram account's subscription).
+void OpenVpnInvite(Window::SessionController *controller);
 
 // Platform keychain; false when unavailable (then a 0600 file is used).
 bool KeychainWrite(const QString &key, const QByteArray &value);
