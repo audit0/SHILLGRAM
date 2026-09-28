@@ -2559,6 +2559,7 @@ if (MSVC)
     target_link_libraries(Telegram
     PRIVATE
         delayimp
+        dnsapi # ShillGramm: static Qt6Network's QDnsLookup needs DnsQueryEx.
     )
     target_link_options(Telegram
     PRIVATE
