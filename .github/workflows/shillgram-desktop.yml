@@ -67,9 +67,12 @@ jobs:
           Get-PSDrive C, D | Format-Table Name, @{n='FreeGB';e={[math]::Round($_.Free/1GB,1)}}
 
       - name: Prepare directories.
+        # On D:, not in the profile on C: — C: keeps about 55 GB after the
+        # cleanup above, and the libraries plus the Release objects ran out
+        # of it (C1085 "No space left on device" on 03.10.2026).
         run: |
-          mkdir %userprofile%\TBuild\Libraries
-          mklink /d %GITHUB_WORKSPACE%\TBuild %userprofile%\TBuild
+          mkdir D:\TBuild\Libraries
+          mklink /d %GITHUB_WORKSPACE%\TBuild D:\TBuild
           echo TBUILD=%GITHUB_WORKSPACE%\TBuild>>%GITHUB_ENV%
           echo LibrariesPath=%GITHUB_WORKSPACE%\TBuild\Libraries\win64>>%GITHUB_ENV%
 
@@ -341,6 +344,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -e
+          # Only our packages: the Linux docker step leaves a build record.
+          rm -f dist/*.dockerbuild
           ls -la dist
           test -n "$(ls dist)"
           (cd dist && sha256sum *) | tee SHA256SUMS-desktop.txt
