@@ -9,6 +9,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 
 #include "shillgramm/shill_agents.h"
 #include "shillgramm/shill_palette.h"
+#include "shillgramm/shill_update.h"
 #include "shillgramm/shill_vpn.h"
 
 #include "data/data_abstract_structure.h"
@@ -308,6 +309,7 @@ void Application::run() {
 	refreshGlobalProxy(); // Depends on app settings being read.
 	Shill::Vpn::Instance().start(); // ShillGramm: before accounts connect.
 	Shill::AgentBridge::Instance().start(); // ShillGramm: agents' MCP.
+	Shill::Updates::Instance().start(); // ShillGramm: a newer release.
 
 	if (const auto old = Local::oldSettingsVersion(); old < AppVersion) {
 		autoRegisterUrlScheme();

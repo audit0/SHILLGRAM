@@ -68,6 +68,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "window/window_peer_menu.h"
 #include "shillgramm/shill_agents.h"
 #include "shillgramm/shill_snooze.h" // Tr
+#include "shillgramm/shill_update.h"
 #include "shillgramm/shill_vpn.h"
 #include "window/window_session_controller.h"
 #include "styles/style_chat.h" // popupMenuExpandedSeparator
@@ -711,6 +712,16 @@ void MainMenu::setupMenu() {
 	)->setClickedCallback([=] {
 		Shill::ShowVpnBox(controller);
 	});
+	// ShillGramm: a newer SHILLGRAM, while the box was put off.
+	if (const auto update = Shill::Updates::Instance().available()) {
+		addAction(
+			rpl::single(Shill::Tr("Update to %1", "Обновить до %1")
+				.arg(update->version)),
+			{ &st::menuIconDownload }
+		)->setClickedCallback([=] {
+			Shill::ShowUpdateBox(controller);
+		});
+	}
 	// ShillGramm: Telegram for Claude Code and Codex in one click.
 	addAction(
 		rpl::single(Shill::Tr("AI agents", "Агенты ИИ")),
