@@ -7,7 +7,7 @@ the app treat its own data as coming from a newer build.
 
 namespace Shill {
 
-inline constexpr auto kVersionStr = "1.0";
+inline constexpr auto kVersionStr = "1.1";
 
 // The name people see (owner, 27.09.2026). AppName and AppFile keep
 // "ShillGramm": the data folder and the bundle are named after them, a new
