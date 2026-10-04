@@ -68,6 +68,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "window/window_peer_menu.h"
 #include "shillgramm/shill_agents.h"
 #include "shillgramm/shill_snooze.h" // Tr
+#include "shillgramm/shill_support.h"
 #include "shillgramm/shill_update.h"
 #include "shillgramm/shill_vpn.h"
 #include "window/window_session_controller.h"
@@ -728,6 +729,13 @@ void MainMenu::setupMenu() {
 		{ &st::menuIconBot }
 	)->setClickedCallback([=] {
 		Shill::ShowAgentsBox(controller);
+	});
+	// ShillGramm: the support chat with the version, system and VPN state.
+	addAction(
+		rpl::single(Shill::Tr("Report a problem", "Сообщить о проблеме")),
+		{ &st::menuIconReport }
+	)->setClickedCallback([=] {
+		Shill::ReportProblem(controller);
 	});
 
 	if (!_controller->session().supportMode()) {
