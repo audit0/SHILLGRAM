@@ -91,6 +91,12 @@ jobs:
 
           echo "$(sha256sum $TBUILD/tdesktop/$PREPARE_PATH | awk '{ print $1 }')" >> CACHE_KEY.txt
           echo "$SDK" >> CACHE_KEY.txt
+          # prepare.py keys every library by the real path of the folder, so
+          # libraries built elsewhere (the C: cache of 28.09) are rebuilt; the
+          # cache key names the folder too, or that old cache keeps matching
+          # and the libraries built here are never saved.
+          echo "root=$(python -c 'import os, sys; print(os.path.realpath(sys.argv[1]))' "$TBUILD")" >> CACHE_KEY.txt
+          cat CACHE_KEY.txt
           echo "CACHE_KEY=$(sha256sum CACHE_KEY.txt | awk '{ print $1 }')" >> $GITHUB_ENV
 
           git config --global user.email "ci@example.com"
