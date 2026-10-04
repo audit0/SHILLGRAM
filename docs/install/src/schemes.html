@@ -1,0 +1,122 @@
+<!doctype html>
+<meta charset="utf-8">
+<!--
+SHILLGRAM install guide: schematic pictures of the system windows on Mac and
+Windows (not screenshots). Render one scene at 1200x720:
+  chrome --headless=new --window-size=1200,720 --screenshot=out.png "schemes.html?s=mac-1"
+Scenes: mac-1 mac-2 mac-3 win-1 win-2. The button to press is mint.
+-->
+<style>
+:root { --bg:#0b0f0f; --win:#f4f6f6; --line:#cfd6d5; --ink:#1b2120; --muted:#5d6967; --mint:#19e6a2; --mintInk:#03241a; --blue:#1f5fa8; }
+* { box-sizing:border-box; margin:0; }
+html, body { width:1200px; height:720px; background:var(--bg); font:22px/1.4 -apple-system, "Segoe UI", "Helvetica Neue", Arial, sans-serif; color:var(--ink); overflow:hidden; }
+.tag { position:absolute; right:28px; top:24px; font:700 15px/1 ui-monospace, Menlo, monospace; letter-spacing:.14em; color:var(--mint); border:1.5px solid var(--mint); border-radius:8px; padding:7px 10px; }
+.step { position:absolute; left:40px; top:26px; font:600 20px/1.2 -apple-system, "Segoe UI", sans-serif; color:#e6eeec; }
+.step b { color:var(--mint); }
+.scene { display:none; position:absolute; inset:0; }
+.btn { display:inline-block; border:1.5px solid var(--line); border-radius:9px; padding:9px 20px; background:#fff; font-size:20px; }
+.btn.go { background:var(--mint); border-color:var(--mint); color:var(--mintInk); font-weight:700; box-shadow:0 0 0 6px rgba(25,230,162,.25); }
+.link.go { color:var(--mintInk); background:rgba(25,230,162,.85); padding:2px 8px; border-radius:6px; font-weight:700; box-shadow:0 0 0 5px rgba(25,230,162,.25); }
+.icon { width:72px; height:72px; border-radius:18px; background:#111; color:var(--mint); font:800 40px/72px -apple-system, sans-serif; text-align:center; }
+/* Mac dialog */
+.mdialog { position:absolute; left:50%; top:54%; transform:translate(-50%,-50%); width:520px; background:var(--win); border-radius:22px; padding:30px 34px; display:grid; gap:16px; justify-items:center; text-align:center; box-shadow:0 30px 80px rgba(0,0,0,.5); }
+.mdialog h2 { font-size:24px; }
+.mdialog p { color:var(--muted); font-size:18px; }
+.mdialog .row { display:grid; gap:10px; width:100%; }
+.mdialog .row .btn { width:100%; }
+/* Mac settings */
+.msettings { position:absolute; left:60px; right:60px; top:86px; bottom:40px; background:var(--win); border-radius:16px; display:grid; grid-template-columns:300px 1fr; overflow:hidden; box-shadow:0 30px 80px rgba(0,0,0,.5); }
+.side { background:#e7ebea; padding:28px 18px; display:grid; gap:8px; align-content:start; font-size:19px; color:var(--muted); }
+.side div { padding:8px 12px; border-radius:8px; }
+.side .on { background:var(--mint); color:var(--mintInk); font-weight:700; }
+.pane { padding:30px 36px; display:grid; gap:16px; align-content:start; }
+.pane h3 { font-size:26px; }
+.pane .muted { color:var(--muted); font-size:18px; }
+.box { border:1.5px solid var(--line); border-radius:12px; padding:18px 20px; display:grid; gap:14px; background:#fff; }
+.box .line { display:flex; align-items:center; justify-content:space-between; gap:20px; }
+/* Windows SmartScreen */
+.wpanel { position:absolute; left:60px; right:60px; top:86px; bottom:40px; background:var(--blue); color:#fff; padding:44px 54px; display:grid; gap:22px; align-content:start; box-shadow:0 30px 80px rgba(0,0,0,.5); }
+.wpanel h2 { font-size:38px; font-weight:400; }
+.wpanel p { font-size:21px; max-width:860px; opacity:.95; }
+.wpanel .meta { font-size:21px; display:grid; gap:4px; }
+.wpanel .bar { position:absolute; right:54px; bottom:40px; display:flex; gap:14px; }
+.wpanel .btn { background:transparent; color:#fff; border:2px solid #fff; border-radius:2px; }
+.wpanel .btn.go { background:var(--mint); color:var(--mintInk); border-color:var(--mint); }
+.wpanel .link { text-decoration:underline; }
+</style>
+
+<div class="tag">СХЕМА</div>
+
+<section class="scene" id="mac-1">
+  <div class="step"><b>Mac, шаг 1.</b> Первый запуск: macOS не даёт открыть. Нажмите «Готово».</div>
+  <div class="mdialog">
+    <div class="icon">S</div>
+    <h2>«SHILLGRAM» не открыт</h2>
+    <p>Apple не удалось проверить, что «SHILLGRAM» не содержит вредоносного ПО.</p>
+    <div class="row">
+      <span class="btn go">Готово</span>
+      <span class="btn">Переместить в Корзину</span>
+    </div>
+  </div>
+</section>
+
+<section class="scene" id="mac-2">
+  <div class="step"><b>Mac, шаг 2.</b> Системные настройки → Конфиденциальность и безопасность → «Всё равно открыть».</div>
+  <div class="msettings">
+    <div class="side">
+      <div>Основные</div><div>Оформление</div><div>Уведомления</div>
+      <div class="on">Конфиденциальность и безопасность</div>
+      <div>Рабочий стол и Dock</div><div>Экран</div>
+    </div>
+    <div class="pane">
+      <h3>Конфиденциальность и безопасность</h3>
+      <div class="muted">Прокрутите вниз до раздела «Безопасность».</div>
+      <div class="box">
+        <b>Безопасность</b>
+        <div class="line">
+          <span>Использование «SHILLGRAM» было заблокировано, так как разработчик не идентифицирован.</span>
+          <span class="btn go">Всё&nbsp;равно&nbsp;открыть</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="scene" id="mac-3">
+  <div class="step"><b>Mac, шаг 3.</b> Подтвердите: «Всё равно открыть», затем пароль или Touch ID.</div>
+  <div class="mdialog">
+    <div class="icon">S</div>
+    <h2>Открыть «SHILLGRAM»?</h2>
+    <p>Подтвердите, если доверяете источнику. Это нужно один раз: дальше приложение открывается как обычно.</p>
+    <div class="row">
+      <span class="btn go">Всё равно открыть</span>
+      <span class="btn">Переместить в Корзину</span>
+      <span class="btn">Готово</span>
+    </div>
+  </div>
+</section>
+
+<section class="scene" id="win-1">
+  <div class="step"><b>Windows, шаг 1.</b> Синее окно SmartScreen: нажмите «Подробнее».</div>
+  <div class="wpanel">
+    <h2>Система Windows защитила ваш компьютер</h2>
+    <p>Фильтр SmartScreen предотвратил запуск неопознанного приложения, которое может подвергнуть компьютер риску.</p>
+    <p><span class="link go">Подробнее</span></p>
+    <div class="bar"><span class="btn">Не выполнять</span></div>
+  </div>
+</section>
+
+<section class="scene" id="win-2">
+  <div class="step"><b>Windows, шаг 2.</b> Появится кнопка «Выполнить в любом случае».</div>
+  <div class="wpanel">
+    <h2>Система Windows защитила ваш компьютер</h2>
+    <p>Фильтр SmartScreen предотвратил запуск неопознанного приложения, которое может подвергнуть компьютер риску.</p>
+    <div class="meta"><span>Приложение: SHILLGRAM.exe</span><span>Издатель: Неизвестный издатель</span></div>
+    <div class="bar"><span class="btn go">Выполнить в любом случае</span><span class="btn">Не выполнять</span></div>
+  </div>
+</section>
+
+<script>
+const s = new URLSearchParams(location.search).get('s') || 'mac-1';
+document.getElementById(s).style.display = 'block';
+</script>
