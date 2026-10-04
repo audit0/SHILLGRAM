@@ -12,12 +12,14 @@ ShillGramm: SHILLVPN built into the app.
 #include "core/file_utilities.h"
 #include "lang/lang_instance.h"
 #include "settings.h"
+#include "settings/settings_common.h"
 #include "shillgramm/shill_site_panel.h"
 #include "shillgramm/shill_snooze.h" // Tr
 #include "ui/layers/generic_box.h"
 #include "ui/widgets/buttons.h"
 #include "ui/widgets/fields/input_field.h"
 #include "ui/widgets/labels.h"
+#include "ui/wrap/vertical_layout.h"
 #include "ui/basic_click_handlers.h"
 #include "ui/text/text_utilities.h"
 #include "window/window_controller.h"
@@ -115,17 +117,19 @@ const auto kTokenRe = QRegularExpression(
 }
 
 // Every page of the site opened from the app carries where it came from,
-// so the site's statistics show what the app sells.
+// so the site's statistics show what the app sells. The marks go after '#'
+// with the page's own parameters (k=, plan=): the site answers 404 to its
+// pages with a query string, and the fragment is read by the page itself.
 [[nodiscard]] QString SiteUrl(
 		const QString &path,
 		const QString &campaign,
 		const QString &fragment = QString()) {
 	auto result = QString::fromLatin1(kSite)
 		+ path
-		+ u"?utm_source=shillgram&utm_medium=app&utm_campaign="_q
+		+ u"#utm_source=shillgram&utm_medium=app&utm_campaign="_q
 		+ (campaign.isEmpty() ? u"app"_q : campaign);
 	if (!fragment.isEmpty()) {
-		result += '#' + fragment;
+		result += '&' + fragment;
 	}
 	return result;
 }
@@ -589,7 +593,9 @@ void Vpn::loadShopInfo(Fn<void(std::optional<ShopInfo>)> done) {
 			const auto price = plan.value(u"price_rub"_q).toInt();
 			if (days > 0 && price > 0) {
 				info.plans.push_back({
+					.id = plan.value(u"id"_q).toString(),
 					.title = plan.value(u"title"_q).toString(),
+					.badge = plan.value(u"badge"_q).toString(),
 					.days = days,
 					.priceRub = price,
 				});
@@ -1251,6 +1257,32 @@ void Vpn::loadFlags() {
 	_remindedAt = TimeId(object.value(u"reminded"_q).toInteger());
 }
 
+namespace {
+
+struct PlanRow {
+	QString title; // "3 months · 123 ₽ a month, −17%"
+	QString price; // "369 ₽"
+};
+
+[[nodiscard]] PlanRow PlanText(const Vpn::Plan &plan) {
+	const auto ru = Lang::GetInstance().id().startsWith(u"ru"_q);
+	const auto months = std::max(1, int(std::lround(plan.days / 30.)));
+	auto title = (ru && !plan.title.isEmpty())
+		? plan.title
+		: (QString::number(months)
+			+ (months == 1 ? u" month"_q : u" months"_q));
+	if (months > 1) {
+		const auto perMonth = int(std::lround(plan.priceRub * 1. / months));
+		title += Tr(" · %1 ₽ a month", " · %1 ₽ в месяц").arg(perMonth);
+	}
+	if (!plan.badge.isEmpty()) {
+		title += u", "_q + plan.badge;
+	}
+	return { title, u"%1 ₽"_q.arg(plan.priceRub) };
+}
+
+} // namespace
+
 void VpnBox(not_null<Ui::GenericBox*> box) {
 	auto &vpn = Vpn::Instance();
 	box->setTitle(rpl::single(u"SHILLVPN"_q));
@@ -1325,9 +1357,63 @@ void VpnBox(not_null<Ui::GenericBox*> box) {
 			});
 		});
 		box->addSkip(st::boxLittleSkip);
-		addLink(
-			rpl::single(Tr("Buy SHILLVPN", "Купить SHILLVPN")),
-			[] { OpenSitePanel(SiteUrl(u"/app/buy/"_q, u"buy"_q)); });
+
+		// Buying right here: the site is named, and every plan with its
+		// price opens shillvpn.site's checkout with that plan chosen.
+		const auto site = box->addRow(object_ptr<Ui::FlatLabel>(
+			box,
+			rpl::single(TextWithEntities{ Tr(
+				"Or buy SHILLVPN on ",
+				"Или купите SHILLVPN на ") }
+				.append(Ui::Text::Link(
+					Ui::Text::Bold(u"shillvpn.site"_q),
+					SiteUrl(u"/app/buy/"_q, u"box_site"_q)))
+				.append(Tr(
+					": SBP, card or crypto, no Telegram needed.",
+					": СБП, карта или криптовалюта, Telegram не нужен."))),
+			st::boxLabel));
+		site->setClickHandlerFilter([](const auto &handler, auto button) {
+			if (button == Qt::LeftButton) {
+				OpenSitePanel(SiteUrl(u"/app/buy/"_q, u"box_site"_q));
+			}
+			return false;
+		});
+		const auto plans = box->addRow(
+			object_ptr<Ui::VerticalLayout>(box),
+			style::margins());
+		const auto addPlan = [=](PlanRow row, QString fragment) {
+			const auto button = plans->add(object_ptr<Ui::SettingsButton>(
+				plans,
+				rpl::single(row.title),
+				st::settingsButtonNoIcon));
+			// The price on the right in the accent colour: a thing to buy.
+			Settings::CreateRightLabel(
+				button,
+				row.price,
+				st::settingsButtonNoIcon,
+				rpl::single(row.title));
+			button->setClickedCallback([=] {
+				OpenSitePanel(SiteUrl(u"/app/buy/"_q, u"box_plan"_q, fragment));
+			});
+		};
+		// Until the prices come, and when the site is out of reach.
+		addPlan({
+			Tr("Buy SHILLVPN", "Купить SHILLVPN"),
+			u"shillvpn.site"_q,
+		}, QString());
+		Vpn::Instance().loadShopInfo(crl::guard(plans, [=](
+				std::optional<Vpn::ShopInfo> info) {
+			if (!info || info->plans.empty()) {
+				return;
+			}
+			plans->clear();
+			for (const auto &plan : info->plans) {
+				addPlan(
+					PlanText(plan),
+					plan.id.isEmpty() ? QString() : (u"plan="_q + plan.id));
+			}
+			plans->resizeToWidth(plans->width());
+		}));
 		box->addSkip(st::boxLittleSkip);
 		box->addRow(object_ptr<Ui::FlatLabel>(
 			box,

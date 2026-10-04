@@ -10,4 +10,7 @@ namespace Shill {
 
 void OpenSitePanel(const QString &url);
 
+// For tests: SHILLGRAM_OPEN_SITE=<url> opens it 3 s after the start.
+void StartSitePanelTestHook();
+
 } // namespace Shill

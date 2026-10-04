@@ -14,6 +14,9 @@ ShillGramm: shillvpn.site in the app's own web window.
 #include "webview/webview_interface.h"
 #include "window/themes/window_theme.h"
 
+#include <QtCore/QFile>
+#include <QtCore/QTimer>
+
 namespace Shill {
 namespace {
 
@@ -134,17 +137,26 @@ public:
 	}
 
 private:
+	// The token only names the web storage, it is not a secret. It lives
+	// next to that storage and not in the Keychain: an unsigned build is a
+	// new app for the Keychain after every update, so reading it there
+	// asked for the Mac password and the page waited for the answer.
 	[[nodiscard]] Webview::StorageId storageId() const {
-		auto token = KeychainRead(u"webview_token"_q).value_or(QByteArray());
+		const auto path = cWorkingDir() + u"tdata/webview-shillvpn"_q;
+		auto file = QFile(cWorkingDir() + u"tdata/shillgramm_webview_token"_q);
+		auto token = file.open(QIODevice::ReadOnly)
+			? file.readAll().trimmed()
+			: QByteArray();
+		file.close();
 		if (token.isEmpty()) {
 			token = QByteArray::fromStdString(
 				Webview::GenerateStorageToken());
-			KeychainWrite(u"webview_token"_q, token);
+			if (file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+				file.write(token);
+				file.close();
+			}
 		}
-		return {
-			.path = cWorkingDir() + u"tdata/webview-shillvpn"_q,
-			.token = token,
-		};
+		return { .path = path, .token = token };
 	}
 
 	std::unique_ptr<Ui::BotWebView::Panel> _panel;
@@ -157,6 +169,17 @@ private:
 void OpenSitePanel(const QString &url) {
 	static auto panel = new SitePanel(); // Lives until exit.
 	panel->open(url);
+}
+
+void StartSitePanelTestHook() {
+	const auto url = qEnvironmentVariable("SHILLGRAM_OPEN_SITE");
+	if (!url.startsWith(u"https://shillvpn.site/"_q)) {
+		return;
+	}
+	QTimer::singleShot(3000, qApp, [=] {
+		LOG(("SHILLGRAM site panel: opening for a test"));
+		OpenSitePanel(url);
+	});
 }
 
 } // namespace Shill

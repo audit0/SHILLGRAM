@@ -84,7 +84,9 @@ public:
 	void checkReminder();
 
 	struct Plan {
+		QString id; // "m3": the buy page opens with this plan chosen.
 		QString title;
+		QString badge; // "−17%"
 		int days = 0;
 		int priceRub = 0;
 	};
