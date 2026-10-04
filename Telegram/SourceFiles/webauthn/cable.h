@@ -20,6 +20,7 @@ enum class Outcome {
 	Success,
 	Cancelled,
 	SecurityKey,
+	KeePassXC, // ShillGramm: passkeys from KeePassXC.
 	NoBluetooth,
 	Failed,
 };

@@ -10,6 +10,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "core/application.h"
 #include "window/window_controller.h"
 #include "lang/lang_keys.h"
+#include "shillgramm/shill_snooze.h" // Tr
 #include "ui/layers/generic_box.h"
 #include "ui/layers/show.h"
 #include "ui/rp_widget.h"
@@ -100,6 +101,7 @@ bool ShowCableBox(BoxContent &&content) {
 		? std::make_shared<QImage>(RenderQr(content.qrText))
 		: std::shared_ptr<QImage>();
 	const auto securityKeyChosen = content.securityKeyChosen;
+	const auto keepassxcChosen = content.keepassxcChosen;
 	const auto cancelled = content.cancelled;
 	show->show(Box([=](not_null<Ui::GenericBox*> box) {
 		box->setStyle(st::passkeyCableBox);
@@ -237,6 +239,26 @@ bool ShowCableBox(BoxContent &&content) {
 						st::boxRowPadding.right(),
 						st::boxLittleSkip),
 					style::al_top);
+
+				// ShillGramm: a passkey kept in KeePassXC on this computer.
+				if (keepassxcChosen) {
+					addPill(rpl::single(u"KeePassXC"_q), keepassxcChosen);
+					content->add(
+						object_ptr<Ui::FlatLabel>(
+							content,
+							Shill::Tr(
+								"A passkey saved in KeePassXC "
+								"on this computer.",
+								"Ключ доступа, сохранённый в KeePassXC "
+								"на этом компьютере."),
+							st::passkeyCableHintLabel),
+						style::margins(
+							st::boxRowPadding.left(),
+							0,
+							st::boxRowPadding.right(),
+							st::boxLittleSkip),
+						style::al_top);
+				}
 			} break;
 
 			case Sheet::Connecting:

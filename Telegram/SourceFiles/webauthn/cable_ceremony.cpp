@@ -12,6 +12,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "webauthn/cable_tunnel.h"
 #include "webauthn/webauthn_common.h"
 #include "lang/lang_keys.h"
+#include "shillgramm/shill_keepassxc.h"
 #include "base/algorithm.h"
 #include "base/timer.h"
 #include "base/unixtime.h"
@@ -376,6 +377,14 @@ void ShowBox(std::shared_ptr<Ceremony> ceremony, bool bluetooth) {
 			}
 			Finish(strong, Outcome::SecurityKey);
 		},
+		.keepassxcChosen = (Shill::KeePassXC::Available()
+			? Fn<void()>([weak] {
+				const auto strong = weak.lock();
+				if (strong && !strong->finished) {
+					Finish(strong, Outcome::KeePassXC);
+				}
+			})
+			: Fn<void()>()),
 		.cancelled = [weak] {
 			const auto strong = weak.lock();
 			if (strong && !strong->finished) {

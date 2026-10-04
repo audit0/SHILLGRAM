@@ -2227,6 +2227,10 @@ PRIVATE
     shillgramm/shill_glass.cpp
     shillgramm/shill_glass.h
     shillgramm/shill_glass_mac.mm
+    shillgramm/shill_keepassxc.cpp
+    shillgramm/shill_keepassxc.h
+    shillgramm/shill_naclbox.cpp
+    shillgramm/shill_naclbox.h
     shillgramm/shill_palette.cpp
     shillgramm/shill_palette.h
     shillgramm/shill_panel.cpp

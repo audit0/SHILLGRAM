@@ -35,6 +35,7 @@ struct BoxContent {
 	bool isRegister = false;
 	bool bluetoothAvailable = false;
 	Fn<void()> securityKeyChosen;
+	Fn<void()> keepassxcChosen; // ShillGramm: null hides the button.
 	Fn<void()> cancelled;
 };
 

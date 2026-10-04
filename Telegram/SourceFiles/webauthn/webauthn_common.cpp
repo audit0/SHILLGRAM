@@ -16,6 +16,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "lang/lang_keys.h"
 #include "platform/platform_webauthn.h"
 #include "settings/cloud_password/settings_cloud_password_common.h"
+#include "shillgramm/shill_keepassxc.h"
 #include "ui/layers/generic_box.h"
 #include "ui/layers/show.h"
 #include "ui/widgets/fields/password_input.h"
@@ -599,6 +600,7 @@ void AttemptRegister(std::shared_ptr<RegisterState> state, QString pin) {
 	case Cable::Outcome::Cancelled:
 		return Error::Cancelled;
 	case Cable::Outcome::SecurityKey:
+	case Cable::Outcome::KeePassXC:
 	case Cable::Outcome::NoBluetooth:
 	case Cable::Outcome::Failed:
 	case Cable::Outcome::Success:
@@ -677,6 +679,9 @@ void RegisterViaCable(
 		if (cable.outcome == Cable::Outcome::SecurityKey) {
 			RegisterViaSecurityKey(data, callback);
 			return;
+		} else if (cable.outcome == Cable::Outcome::KeePassXC) {
+			Shill::KeePassXC::Register(data, callback);
+			return;
 		}
 		auto result = RegisterResult();
 		if (cable.outcome == Cable::Outcome::Success) {
@@ -707,6 +712,9 @@ void LoginViaCable(
 	Cable::Login(std::move(request), [=](Cable::LoginResult cable) {
 		if (cable.outcome == Cable::Outcome::SecurityKey) {
 			LoginViaSecurityKey(data, callback);
+			return;
+		} else if (cable.outcome == Cable::Outcome::KeePassXC) {
+			Shill::KeePassXC::Login(data, callback);
 			return;
 		}
 		auto result = LoginResult();
