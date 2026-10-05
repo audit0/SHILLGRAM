@@ -22,6 +22,9 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "base/random.h"
 #include "apiwrap.h"
 
+// AyuGram includes
+#include "ayu/ayu_settings.h"
+
 #include <QtCore/QJsonDocument>
 #include <QtCore/QJsonArray>
 #include <QtCore/QJsonObject>
@@ -318,6 +321,11 @@ void EmojiInteractions::sendAccumulatedOutgoing(
 	if (bunch.interactions.empty()) {
 		return;
 	}
+	// SHILLGRAM: ghost — emoji interaction is a typing packet, the peer sees you in the chat
+	if (!AyuSettings::ghost(_session).sendUploadProgress()) {
+		animations.erase(from, till);
+		return;
+	}
 	const auto peer = item->history()->peer;
 	const auto emoji = from->emoji;
 	const auto requestId = _session->api().request(MTPmessages_SetTyping(
@@ -475,6 +483,10 @@ void EmojiInteractions::playStarted(not_null<PeerData*> peer, QString emoji) {
 	const auto i = map.find(emoji);
 	const auto now = crl::now();
 	if (i != end(map) && now - i->second < kAccumulateSeenRequests) {
+		return;
+	}
+	// SHILLGRAM: ghost — "watching the emoji" tells the peer you have the chat open
+	if (!AyuSettings::ghost(_session).sendUploadProgress()) {
 		return;
 	}
 	_session->api().request(MTPmessages_SetTyping(

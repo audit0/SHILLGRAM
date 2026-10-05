@@ -9,6 +9,10 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 
 #include "apiwrap.h"
 #include "data/data_peer.h"
+#include "main/main_session.h"
+
+// AyuGram includes
+#include "ayu/ayu_settings.h"
 
 namespace Api {
 namespace {
@@ -25,6 +29,10 @@ ReadMetrics::ReadMetrics(not_null<ApiWrap*> api)
 void ReadMetrics::add(
 		not_null<PeerData*> peer,
 		FinalizedReadMetric metric) {
+	// SHILLGRAM: ghost — how long a post was read is a read receipt for the channel
+	if (!AyuSettings::ghost(&peer->session()).sendReadMessages()) {
+		return;
+	}
 	_pending[peer].push_back(metric);
 	if (!_timer.isActive()) {
 		_timer.callOnce(kSendTimeout);

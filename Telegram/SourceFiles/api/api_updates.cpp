@@ -1021,12 +1021,15 @@ void Updates::updateOnline(crl::time lastNonIdleTime, bool gotOtherOffline) {
 		}
 	}
 	auto ms = crl::now();
-	if (isOnline != _lastWasOnline
+	// SHILLGRAM: ghost — AyuGram compared with the window state, so with ghost on and the window
+	// active every tick re-sent "offline" and the server moved "last seen" to now each time
+	if (isOnline != _lastSentOnline
 		|| (isOnline && _lastSetOnline + config.onlineUpdatePeriod <= ms)
 		|| (isOnline && gotOtherOffline)) {
 		api().request(base::take(_onlineRequest)).cancel();
 
 		_lastWasOnline = isOnlineOrig;
+		_lastSentOnline = isOnline;
 		_lastSetOnline = ms;
 		if (!Core::Quitting()) {
 			_onlineRequest = api().request(MTPaccount_UpdateStatus(
@@ -1085,7 +1088,8 @@ crl::time Updates::lastSetOnline() const {
 }
 
 bool Updates::isQuitPrevent() {
-	if (!_lastWasOnline) {
+	// SHILLGRAM: ghost — already offline on the server: quitting must not refresh "last seen"
+	if (!_lastWasOnline || !_lastSentOnline) {
 		return false;
 	}
 	LOG(("Api::Updates prevents quit, sending offline status..."));

@@ -26,6 +26,9 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "main/main_session.h"
 #include "window/notifications_manager.h"
 
+// AyuGram includes
+#include "ayu/ayu_settings.h"
+
 namespace Data {
 namespace {
 
@@ -706,6 +709,12 @@ void SavedSublist::sendReadTillRequest() {
 	}
 	const auto api = &_parent->session().api();
 	api->request(base::take(_readRequestId)).cancel();
+
+	// SHILLGRAM: ghost — channel direct messages read only locally, like RepliesList
+	const auto &ghost = AyuSettings::ghost(&_parent->session());
+	if (!ghost.sendReadMessages()) {
+		return;
+	}
 
 	_sentReadTill = computeInboxReadTillFull();
 	_readRequestId = api->request(MTPmessages_ReadSavedHistory(

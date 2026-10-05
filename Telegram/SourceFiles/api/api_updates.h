@@ -215,6 +215,8 @@ private:
 	base::Timer _idleFinishTimer;
 	crl::time _lastSetOnline = 0;
 	bool _lastWasOnline = false;
+	// SHILLGRAM: ghost — status really sent to the server (_lastWasOnline keeps the window state)
+	bool _lastSentOnline = false;
 	rpl::variable<bool> _isIdle = false;
 
 	rpl::lifetime _lifetime;
