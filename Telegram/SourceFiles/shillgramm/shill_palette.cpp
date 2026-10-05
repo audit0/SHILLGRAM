@@ -32,6 +32,9 @@ ShillGramm: Cmd+K command palette - chats, actions and settings in one place.
 #include "ui/widgets/multi_select.h"
 #include "ui/painter.h"
 #include "ui/rp_widget.h"
+
+#include <QtWidgets/QAbstractScrollArea>
+#include <QtWidgets/QScrollBar>
 #include "window/main_window.h"
 #include "window/themes/window_theme.h"
 #include "window/window_adaptive.h"
@@ -968,21 +971,29 @@ struct PullSession {
 	}
 };
 
-[[nodiscard]] bool InsideScrollable(
+// A pull may start over a list only when every list above the cursor
+// is already at its top, so the usual scroll back up keeps working.
+[[nodiscard]] bool ScrolledAwayFromTop(
 		not_null<QWidget*> widget,
 		not_null<QWidget*> until) {
 	for (auto w = widget.get(); w && w != until; w = w->parentWidget()) {
-		if (dynamic_cast<Ui::ElasticScroll*>(w)
-			|| w->inherits("QAbstractScrollArea")) {
-			return true;
+		if (const auto elastic = dynamic_cast<Ui::ElasticScroll*>(w)) {
+			if (elastic->scrollTop() > 0) {
+				return true;
+			}
+		} else if (const auto area = qobject_cast<QAbstractScrollArea*>(w)) {
+			const auto bar = area->verticalScrollBar();
+			if (bar && bar->value() > bar->minimum()) {
+				return true;
+			}
 		}
 	}
 	return false;
 }
 
 // Two-finger trackpad pull, counted by real finger travel everywhere:
-// the chat list (when scrolled to the top), the search bar, the empty
-// chat area. Lists that scroll by themselves keep their own gesture.
+// anywhere in the window body where the lists under the cursor are
+// scrolled to their top. Elsewhere the fingers keep scrolling as usual.
 class PullFilter final : public QObject {
 public:
 	PullFilter(
@@ -1002,6 +1013,12 @@ public:
 protected:
 	bool eventFilter(QObject *object, QEvent *e) override {
 		if (e->type() != QEvent::Wheel) {
+			return false;
+		}
+		if (!object->isWidgetType()) {
+			// Qt shows the event to the QWindow first and then sends a
+			// copy to the widget under the cursor: judge by the widget,
+			// or the copy is taken for a repeat and the pull never starts.
 			return false;
 		}
 		const auto wheel = static_cast<QWheelEvent*>(e);
@@ -1034,7 +1051,7 @@ private:
 			return (list->scrollTop() == 0)
 				&& (!_chatsListAllowed || _chatsListAllowed());
 		}
-		return !InsideScrollable(widget, body);
+		return !ScrolledAwayFromTop(widget, body);
 	}
 
 	bool handle(QObject *object, not_null<QWheelEvent*> wheel) {
